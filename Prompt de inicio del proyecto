@@ -1,0 +1,162 @@
+# Solicitud de Generación de Proyecto: PWA Offline con Vue 3, Vite y TailwindCSS para un Reproductor de Música
+
+## Descripción General:
+Genera la estructura completa y la configuración base para una aplicación web progresiva (PWA) diseñada para funcionar completamente offline. El proyecto utilizará el siguiente stack y cumplirá con los requisitos detallados a continuación.
+
+## Stack Tecnológico:
+- **Entorno de Desarrollo**: Node.js (para la gestión de paquetes con npm/yarn y ejecución de Vite).
+- **Framework Frontend**: Vue 3 (con Composition API y `<script setup>`).
+- **Bundler**: Vite.
+- **Estilos**: TailwindCSS.
+- **Lenguaje**: JavaScript (o TypeScript si es fácil de configurar por defecto con Vite, indícalo).
+
+## Estructura de Carpetas Requerida:
+Asegúrate de crear la siguiente estructura de directorios:
+/
+├── public/             # Assets estáticos, incluyendo manifest.webmanifest e íconos PWA
+│   └── icons/          # Para íconos de la PWA de diferentes tamaños
+├── src/
+│   ├── assets/         # Assets procesados por Vite (imágenes, fuentes, etc.)
+│   ├── components/     # Componentes de Vue reutilizables
+│   │   └── DevTools.vue # Componente de depuración (ver sección "Modo Debug")
+│   ├── views/          # Componentes de Vue que actúan como páginas/rutas
+│   │   └── HomeView.vue # Ejemplo de una vista inicial
+│   ├── router/         # Configuración de Vue Router (si se añade, ver "Resultado Esperado")
+│   │   └── index.js
+│   ├── services/       # Lógica de PWA y Service Worker (o configuración para vite-plugin-pwa)
+│   │   └── pwa.js      # (Opcional, si no se usa vite-plugin-pwa para todo)
+│   ├── utils/          # Funciones de utilidad (ej. para permisos)
+│   │   └── permissions.js # Para encapsular la lógica de solicitud de permisos
+│   ├── App.vue         # Componente raíz de Vue
+│   └── main.js         # Punto de entrada de la aplicación Vue
+├── .gitignore
+├── index.html
+├── LICENSE
+├── package.json
+├── postcss.config.js   # Configuración de PostCSS (para TailwindCSS)
+├── tailwind.config.js
+└── vite.config.js
+
+## Configuración PWA Detallada:
+1.  **Plugin Vite PWA**: Configura `vite-plugin-pwa` en `vite.config.js`.
+    * **Manifest**: Genera un `manifest.webmanifest` (colócalo en `/public`) con los siguientes campos rellenables a partir de los parámetros: `name`, `short_name`, `description`, `start_url`, `display`, `background_color`, `theme_color`. Incluye un array `icons` con referencias a íconos estándar de PWA (ej. 192x192, 512x512) que debes crear como placeholders en `/public/icons/`.
+    * **Service Worker**:
+        * Utiliza una estrategia de "precache and runtime caching" robusta.
+        * **Precaché**: Todos los assets estáticos generados por la build (HTML, JS, CSS, imágenes en `src/assets`, fuentes).
+        * **Rutas Offline**: Asegura que la aplicación (app shell y vistas principales) sea completamente funcional offline después de la primera visita.
+        * **Actualización Automática**: Configura el service worker para que se actualice automáticamente y muestre un aviso al usuario cuando haya una nueva versión disponible.
+2.  **Registro del Service Worker**: Asegúrate de que el Service Worker se registre correctamente en `main.js` o `App.vue`.
+
+## Gestión de Permisos del Dispositivo (Opcional y Condicional):
+En `/src/utils/permissions.js`, genera funciones para solicitar los siguientes permisos solo si su respectivo flag en `enabledPermissions` (ver YAML abajo) es `true`. Cada función debe:
+    a. Comprobar si la API está disponible en el navegador.
+    b. Solicitar el permiso al usuario.
+    c. Devolver una promesa que resuelva con el estado del permiso o los datos (ej. stream de la cámara).
+    d. Incluir manejo básico de errores (ej. permiso denegado, API no soportada).
+
+Crea un componente de ejemplo en `/src/components/DeviceFeatures.vue` que intente usar estas funciones (si están habilitadas) y muestre el estado o resultado.
+
+Permisos a considerar (basado en `enabledPermissions`):
+- `camera`: Acceso a la cámara (`navigator.mediaDevices.getUserMedia({ video: true })`).
+- `microphone`: Acceso al micrófono (`navigator.mediaDevices.getUserMedia({ audio: true })`).
+- `geolocation`: Acceso a la ubicación (`navigator.geolocation.getCurrentPosition()`).
+- `gyroscope`: Acceso al giroscopio (`new Gyroscope()`).
+- `accelerometer`: Acceso al acelerómetro (`new Accelerometer()`).
+- `speakers`: (Nota: El control de "parlantes" como permiso es inusual. Si te refieres a la capacidad de reproducir audio, no requiere permiso especial. Si es para seleccionar dispositivo de salida, es más complejo (Audio Output Devices API). Para este prompt, si `speakers: true`, simplemente incluye un ejemplo de reproducción de un archivo de audio local o de un `<audio>` tag).
+
+## Licencia:
+Incluye un archivo `LICENSE` con el texto completo de la Licencia MIT.
+Incluye un archivo `.gitignore` completo y estándar para proyectos Node.js y Vue 3 (+ Vite).
+
+## Modo Debug:
+Crea un componente Vue llamado `DevTools.vue` en `/src/components/`.
+- Este componente debe mostrar información útil para el desarrollo (ej. variables de entorno, estado de PWA, etc. - puedes poner placeholders).
+- Móntalo globalmente en `App.vue` de forma que solo sea visible durante el desarrollo (usando `import.meta.env.DEV`) y no se incluya en el build de producción (`npm run build`).
+
+## Proceso de Build:
+La ejecución de `npm run build` (o el comando de build de Vite) debe generar un directorio `dist/` con todos los archivos estáticos listos para ser servidos desde cualquier servidor web y funcionar offline según la configuración PWA.
+
+## Archivo README:
+Genera un `README.md` que incluya:
+- Nombre de la aplicación y descripción (tomados de los parámetros).
+- Instrucciones claras para:
+    - Clonar/descargar el proyecto.
+    - Instalar dependencias (`npm install`).
+    - Ejecutar el servidor de desarrollo (`npm run dev`).
+    - Realizar el build de producción (`npm run build`).
+    - Cómo probar la funcionalidad PWA y offline.
+- Breve explicación de la estructura de carpetas.
+- Notas sobre los permisos del dispositivo solicitados (si alguno está habilitado).
+
+---
+# Parámetros a Rellenar para el Proyecto Específico:
+
+```yaml
+appName: "{{PWA Music Player}}" # Usado en package.json, manifest, README
+appShortName: "{{PWA Music}}" # Usado en manifest
+description: "{{Aplicación web offline para reproducción de música de los directorios del usuario con sus respectivos formatos mp3, flac, ogg, wav y extensiones de listas de reproducción tanto de archivos locales como de archivos remotos. La aplicación puede funcionar completamente fuera de línea por lo que no recolecta información privada y así puedes tener lo mejor de escuchar música con calidad de forma libre, segura y fluida aunque el navegador no esté en primer plano y pudiendo usar los controles multimedia como en otras aplicaciones populares de reproducción multimedia." # Usado en package.json, manifest, README
+themeColor: "{{#552A93}}" # Color para la barra de tema del navegador en el manifest
+backgroundColor: "{{#48CBA9}}" # Color para la pantalla de splash en el manifest
+developerName: "{{HISQUE Estudio}}" # Usado en package.json, manifest, README
+developerEmail: "{{explora@hisque.com.co}}"
+repositoryUrl: "{{https://github.com/juantomoo/PWA-MusicPlayer}}" # Usado en package.json y README
+appVersion: "{{0.1.0}}" # Usado en package.json y README
+
+# Funcionalidades principales (para README y placeholders)
+features:
+  - "{{Funcionalidad 1: Debe ser un reproductor de música que pueda leer archivos de audio y listas de reproducción desde el directorio del usuario y reproducirlos en segundo plano. Debe poder funcionar sin conexión a Internet y no recolectar información privada.}}"
+  - "{{Funcionalidad 2: Se debe instalar como una aplicación web progresiva (PWA) y funcionar completamente offline excepto para buscar actualizaciones y mostrar notificación cuando exista la actualización para que el usuario la descargue.}}"
+  - "{{Funcionalidad 3: Debe tener un ecualizador y potenciador de volumen para mejorar la calidad del audio.}}"
+  - "{{Funcionalidad 4: Debe tener un modo de visualización de carátulas de álbumes y listas de reproducción.}}"
+  - "{{Funcionalidad 5: Debe tener un modo de depuración para mostrar información útil para el desarrollo.}}"
+  - "{{Funcionalidad 6: Debe tener usar los controles multimedia del sistema para pausar, reproducir, avanzar y retroceder la música.}}"
+  - "{{Funcionalidad 7: Debe tener un modo de pantalla completa para visualizar las carátulas de álbumes y listas de reproducción.}}"
+  - "{{Funcionalidad 8: Debe tener un modo de visualización de letras de canciones cuando se encuentren archivos de letras o lyrics disponibles.}}"
+  - "{{Funcionalidad 9: Debe tener una opción de favoritos (agregar/quitar) que genere una playlist de favoritos en el directorio del usuario.}}"
+  - "{{Funcionalidad 10: Debe tener una opción de búsqueda para encontrar canciones y listas de reproducción en el directorio del usuario.}}"
+  - "{{Funcionalidad 11: Debe tener una opción de filtrar por género, año, artista y álbum.}}"
+
+targetAudience: "{{La aplicación es para melomanos que tienen sus propios archivos de música y no quieren usar reproductores de mala calidad que recogen información del usuario y muestran comerciales, solo la clásica reproducción fluida y sin límites como lo hicieron las mejores aplicaciones en los años 90, ahora admitiendo los formatos actuales, tecnología moderna y dispositivos móviles.}}" # Para README
+
+# Dirección de arte (para Tailwind y placeholders)
+# Ejemplo: "{{Estilo visual vaporwave 80s con un enfoque fresco con botones basados en íconos y espacio limpio para visualizar las carátulas, controles de reproducción, ecualizador, potenciador de volumen y efectos, paleta de colores /* Color Theme Swatches in Hex */@amari-creative-vaporwave-1-hex: #48CBA9; @amari-creative-vaporwave-2-hex: #E5156D; @amari-creative-vaporwave-3-hex: #552A93; @amari-creative-vaporwave-4-hex: #FDC47F; @amari-creative-vaporwave-5-hex: #3D758C; /* Color Theme Swatches in RGBA */ @amari-creative-vaporwave-1-rgba: rgba(72, 202, 168, 1); @amari-creative-vaporwave-2-rgba: rgba(228, 20, 109, 1); @amari-creative-vaporwave-3-rgba: rgba(84, 42, 147, 1); @amari-creative-vaporwave-4-rgba: rgba(253, 195, 126, 1); @amari-creative-vaporwave-5-rgba: rgba(61, 117, 140, 1); primarios/secundarios/acento, tipografía sugerida, tono UX/UI}}"
+
+# Habilitar la generación de código para solicitar estos permisos
+enabledPermissions:
+  camera: {{false}}
+  microphone: {{false}}
+  speakers: {{true}} # Interpretado como capacidad de reproducir audio, si se requieren permisos específicos.
+  geolocation: {{false}}
+  gyroscope: {{false}}
+  accelerometer: {{false}}
+  directory: {{true}} # Permiso para acceder al directorio del usuario (no estándar, pero se puede simular con un input de tipo file).
+  # Si se requiere un permiso específico para acceder a archivos locales, se puede usar el API de File System Access (experimental y no soportado en todos los navegadores).
+```
+
+---
+# Resultado Esperado de la Generación por Copilot:
+
+1.  **Comando de Inicialización Sugerido**: El comando que usarías para crear un proyecto base Vite + Vue (ej. `npm create vite@latest {{appNameSlug}} --template vue` o `vue-ts`). No se va a usar TypeScript por defecto, pero si Copilot puede configurarlo fácilmente, se sugiere como opción.
+2.  **`vite.config.js`**:
+    * Configurado con `vite-plugin-pwa` según las especificaciones.
+    * Configurado para TailwindCSS (integración con PostCSS).
+3.  **`tailwind.config.js`**:
+    * Listo para producción (configuración de `content` para purgar CSS no utilizado).
+    * Si se proveen colores en `artDirection`, intentar usarlos para extender la paleta de Tailwind con colores globales dinámicos en una hoja de estilos que debe estar correctamente enrutada y manejada en el `index.html`.
+4.  **`postcss.config.js`**: Configurado para TailwindCSS y autoprefixer.
+5.  **Estructura de Carpetas y Archivos**:
+    * Todas las carpetas especificadas creadas.
+    * Archivos de ejemplo básicos en `/src/views/HomeView.vue`, `/src/components/DeviceFeatures.vue` (si hay permisos), y `/src/components/DevTools.vue`.
+    * `App.vue` configurado para montar `DevTools.vue` condicionalmente y `<router-view>` si se usa Vue Router.
+    * `main.js` configurado para inicializar Vue, Vue Router (si se usa), y registrar el Service Worker.
+    * `/src/utils/permissions.js` con las funciones de solicitud de permisos (si están habilitadas).
+6.  **Archivos PWA**:
+    * `/public/manifest.webmanifest` generado y populado con los parámetros.
+    * Íconos placeholder en `/public/icons/` (ej. `icon-192x192.png`, `icon-512x512.png`).
+    * El Service Worker será generado por `vite-plugin-pwa` según su configuración.
+7.  **Archivos Misceláneos**:
+    * `.gitignore` apropiado.
+    * `LICENSE` (MIT).
+    * `package.json` inicializado con dependencias básicas (vue, vite, vite-plugin-pwa, tailwindcss, postcss, autoprefixer) y scripts (`dev`, `build`, `preview`). Los campos como `name`, `description`, `author`, `repository` deben usar los parámetros YAML.
+8.  **`README.md`**: Completo y detallado según las especificaciones.
+9.  **(Opcional pero recomendado) Vue Router**: Configuración básica de Vue Router con la `HomeView.vue` como ruta inicial (`/`). Si se incluye, generar `/src/router/index.js`.
