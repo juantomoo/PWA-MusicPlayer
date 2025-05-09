@@ -1,10 +1,60 @@
 <template>
-  <div class="flex w-full justify-around border-b border-vaporwave2 mb-2 sticky top-0 bg-vaporwave5 z-10">
-    <button v-for="tab in tabs" :key="tab.name" @click="$emit('change', tab.name)" :class="['flex-1 py-2', tab.name === modelValue ? 'font-bold text-vaporwave2 border-b-2 border-vaporwave2' : 'text-vaporwave4']">
-      {{ tab.label }}
-    </button>
-  </div>
+  <nav class="w-full">
+    <div class="flex text-center">
+      <router-link to="/" class="tab-link" active-class="active-tab">
+        <div class="text-lg">🎵</div>
+        <div class="text-xs">Reproductor</div>
+      </router-link>
+      
+      <router-link to="/equalizer" class="tab-link" active-class="active-tab">
+        <div class="text-lg">🎚️</div>
+        <div class="text-xs">Ecualizador</div>
+      </router-link>
+      
+      <router-link to="/playlists" class="tab-link" active-class="active-tab">
+        <div class="text-lg">📋</div>
+        <div class="text-xs">Playlists</div>
+      </router-link>
+      
+      <router-link to="/lyrics" class="tab-link" active-class="active-tab">
+        <div class="text-lg">📝</div>
+        <div class="text-xs">Letras</div>
+      </router-link>
+    </div>
+  </nav>
 </template>
+
 <script setup>
-defineProps({ tabs: Array, modelValue: String });
+// No se requiere lógica adicional para este componente
 </script>
+
+<style scoped>
+.tab-link {
+  display: block;
+  padding: 0.5rem 0.25rem;
+  color: var(--color-vaporwave4);
+  text-decoration: none;
+  transition: background-color 0.2s, color 0.2s;
+  user-select: none;
+}
+
+.tab-link:hover {
+  background-color: var(--color-vaporwave5);
+}
+
+.active-tab {
+  background-color: var(--color-vaporwave5);
+  color: white;
+  position: relative;
+}
+
+.active-tab::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 25%;
+  width: 50%;
+  height: 3px;
+  background-color: var(--color-vaporwave2);
+}
+</style>

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { useRoute, useRouter, RouterView } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import Tabs from './components/Tabs.vue';
 import PlayerControls from './components/PlayerControls.vue';
 import TrackInfo from './components/TrackInfo.vue';
@@ -17,9 +17,9 @@ const route = useRoute();
 
 const tabs = [
   { name: 'NowPlaying', label: 'Reproduciendo', path: '/' },
-  { name: 'Letras', label: 'Letras', path: '/letras' },
   { name: 'Equalizer', label: 'Ecualizador', path: '/equalizer' },
   { name: 'Playlists', label: 'Listas', path: '/playlists' },
+  { name: 'Letras', label: 'Letras', path: '/lyrics' },
 ];
 
 function goToTab(tabName) {
@@ -43,10 +43,12 @@ function handleTogglePlay() {
   if (!store.state.currentTrack || !store.state.currentTrack.fileHandle) return;
   if (store.state.isPlaying) {
     audioManager.pause();
-    store.setPlaying(false);
+    store.pause();  // Use pause() instead of setPlaying(false)
   } else {
-    audioManager.playFile(store.state.currentTrack.fileHandle);
-    store.setPlaying(true);
+    // Si ya hay un archivo cargado, simplemente reanudar la reproducción
+    // en lugar de volver a cargar el archivo desde el principio
+    audioManager.play();
+    store.play();   // Use play() instead of setPlaying(true)
   }
 }
 
@@ -56,11 +58,29 @@ function handleVolume(val) {
 }
 
 function handlePrev() {
-  store.playPrev();
+  const prevTrack = store.playPrev();
+  if (prevTrack && prevTrack.fileHandle) {
+    audioManager.playFile(prevTrack.fileHandle)
+      .then(() => {
+        store.play();  // Use play() instead of setPlaying(true)
+      })
+      .catch(error => {
+        console.error('Error al reproducir pista anterior:', error);
+      });
+  }
 }
 
 function handleNext() {
-  store.playNext();
+  const nextTrack = store.playNext();
+  if (nextTrack && nextTrack.fileHandle) {
+    audioManager.playFile(nextTrack.fileHandle)
+      .then(() => {
+        store.play();  // Use play() instead of setPlaying(true)
+      })
+      .catch(error => {
+        console.error('Error al reproducir siguiente pista:', error);
+      });
+  }
 }
 
 const restoring = ref(false);
@@ -160,9 +180,78 @@ async function scanDirectory(dirHandle) {
   }
 }
 
+// Configurar eventos de audio para actualizar el estado global
+function setupAudioEvents() {
+  // Actualizar tiempo actual en el store
+  audioManager.onTimeUpdate(() => {
+    store.updateCurrentTime(audioManager.getCurrentTime());
+  });
+  
+  // Actualizar duración cuando se carga un audio
+  const audioElement = document.querySelector('audio');
+  if (audioElement) {
+    audioElement.addEventListener('durationchange', (event) => {
+      let duration = 0;
+      if (event.detail && event.detail.duration) {
+        duration = event.detail.duration;
+      } else if (audioElement.duration) {
+        duration = audioElement.duration;
+      }
+      store.updateDuration(duration);
+    });
+    
+    // Manejar fin de reproducción
+    audioElement.addEventListener('ended', () => {
+      if (store.state.repeat === 'one') {
+        // Si está en modo repetir uno, reproducir la misma pista
+        audioManager.seekTo(0);
+        audioManager.play();
+      } else {
+        // Reproducir siguiente
+        handleNext();
+      }
+    });
+  }
+}
+
+// Formatear tiempo en formato mm:ss
+function formatTime(seconds) {
+  if (!seconds) return '00:00';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Función para buscar pista en progreso específico
+function handleSeek(event) {
+  const time = parseFloat(event.target.value);
+  audioManager.seekTo(time);
+}
+
 onMounted(async () => {
+  // Inicializar audioManager manualmente al inicio
+  audioManager.init();
+  
+  // Configurar eventos de audio
+  setupAudioEvents();
+  
+  // Registrar callback para actualización de tiempo continua
+  audioManager.onTimeUpdate((currentTime, duration) => {
+    store.updateCurrentTime(currentTime);
+    if (duration && duration > 0) {
+      store.updateDuration(duration);
+    }
+  });
+
+  // Mostrar los datos actuales del reproductor en consola para depuración
+  const audioElement = document.getElementById('audio-player');
+  if (audioElement) {
+    console.log('Audio element loaded successfully:', audioElement);
+  }
+  
   restoring.value = true;
   restoreError.value = '';
+  
   // Intentar restaurar el último directorio
   const lastHandle = await getDirectoryHandle();
   if (lastHandle) {
@@ -170,8 +259,6 @@ onMounted(async () => {
       const perm = await lastHandle.requestPermission({ mode: 'read' });
       if (perm === 'granted') {
         await scanDirectory(lastHandle);
-        restoring.value = false;
-        return;
       } else {
         restoreError.value = 'Permiso denegado para acceder al directorio anterior.';
       }
@@ -180,31 +267,113 @@ onMounted(async () => {
     }
   }
   restoring.value = false;
+
+  // Configurar atajos de teclado para control de reproducción
+  window.addEventListener('keydown', (e) => {
+    // Solo si no está en un campo de texto
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+      return;
+    }
+    
+    switch (e.code) {
+      case 'Space': // Reproducir/Pausar con espacio
+        e.preventDefault();
+        handleTogglePlay();
+        break;
+      case 'ArrowRight': // Avanzar con flecha derecha
+        if (e.ctrlKey || e.metaKey) {
+          handleNext();
+        } else {
+          // Avanzar 5 segundos
+          const newTime = Math.min(store.state.currentTime + 5, store.state.duration);
+          handleSeek(newTime);
+        }
+        break;
+      case 'ArrowLeft': // Retroceder con flecha izquierda
+        if (e.ctrlKey || e.metaKey) {
+          handlePrev();
+        } else {
+          // Retroceder 5 segundos
+          const newTime = Math.max(store.state.currentTime - 5, 0);
+          handleSeek(newTime);
+        }
+        break;
+    }
+  });
 });
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col bg-vaporwave3 text-white">
-    <header class="w-full flex items-center justify-between px-4 py-3 bg-vaporwave5 shadow">
-      <div class="flex items-center gap-2">
-        <img src="/icons/icon-192x192.png" alt="Logo" class="w-9 h-9 rounded" />
-        <span class="text-xl font-bold tracking-wide">PWA Music Player</span>
-      </div>
-    </header>
-    <Tabs :tabs="tabs" :model-value="route.name" @change="goToTab" />
-    <main class="flex-1 flex flex-col w-full max-w-md mx-auto px-2 pb-28">
-      <RouterView />
-    </main>
-    <footer class="fixed bottom-0 left-0 w-full bg-vaporwave5 shadow-lg z-20">
-      <div class="flex flex-col items-center gap-1 py-2 px-2 max-w-md mx-auto">
-        <TrackInfo :track="store.state.currentTrack || { name: 'Sin pista', artist: '', album: '', year: '' }" />
-        <div class="flex items-center justify-between w-full gap-2 mt-1">
-          <PlayerControls :is-playing="store.state.isPlaying" @prev="handlePrev" @togglePlay="handleTogglePlay" @next="handleNext" />
-          <VolumeControl :model-value="store.state.volume" @update:modelValue="handleVolume" />
+  <div id="app-container" class="h-screen flex flex-col overflow-hidden">
+    <!-- Header fijo en la parte superior -->
+    <header class="bg-vaporwave5 z-30 shadow-lg">
+      <div class="flex items-center justify-between px-4 py-2">
+        <div class="flex items-center gap-2">
+          <img src="/icons/icon-192x192.png" alt="Logo" class="logo-head" />
+          <span class="text-xl font-bold tracking-wide">PWA Music Player</span>
         </div>
       </div>
-      <div class="text-center text-xs text-vaporwave4 pb-1">&copy; 2025 HISQUE Estudio</div>
+    </header>
+    
+    <!-- Navegación de pestañas -->
+    <div class="z-20 bg-vaporwave3">
+      <Tabs />
+    </div>
+    
+    <!-- Contenido principal con scroll -->
+    <main class="flex-grow overflow-y-auto pb-36">
+      <RouterView />
+    </main>
+    
+    <!-- Elemento de audio oculto para reproducción -->
+    <audio id="audio-player" style="display:none"></audio>
+    
+    <!-- Footer con controles fijo en la parte inferior -->
+    <footer class="bottom-0 left-0 right-0 bg-vaporwave5 shadow-lg z-30 pb-safe">
+      <div class="footer-info">
+        <!-- Información de la pista -->
+        <TrackInfo :track="store.state.currentTrack || { name: 'Sin pista', artist: '', album: '', year: '' }" class="info-pista" />
+        
+        <!-- Barra de progreso (slider y tiempos) -->
+        <div class="mt-2 mb-2">
+          <div class="flex justify-between text-xs text-vaporwave4 mb-1">
+            <span>{{ formatTime(store.state.currentTime) }}</span>
+            <span>{{ formatTime(store.state.duration) }}</span>
+          </div>
+          <input 
+            type="range" 
+            min="0" 
+            :max="store.state.duration" 
+            :value="store.state.currentTime"
+            :style="{ backgroundSize: `${store.state.progressPercentage}% 100%` }"
+            step="0.1"
+            @input="handleSeek"
+            class="w-full accent-vaporwave4 cursor-pointer progress-slider"
+          />
+        </div>
+        
+        <!-- Controles de reproducción y volumen -->
+        <div class="mt-2 flex items-center justify-between gap-2 controles">
+          <div class="w-4/6">
+            <PlayerControls 
+              :is-playing="store.state.isPlaying" 
+              @prev="handlePrev" 
+              @togglePlay="handleTogglePlay" 
+              @next="handleNext" 
+            />
+          </div>
+          <div class="w-2/6">
+            <VolumeControl :model-value="store.state.volume" @update:modelValue="handleVolume" />
+          </div>
+        </div>
+        
+        <div class="text-vaporwave4 py-1 desarrollador">
+          &copy; 2025 HISQUE Estudio
+        </div>
+      </div>
     </footer>
+    
+    <!-- DevTools en modo desarrollo -->
     <DevTools v-if="isDev" />
   </div>
 </template>
@@ -212,5 +381,121 @@ onMounted(async () => {
 <style>
 body {
   background: #552A93;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  height: 100vh;
+}
+
+.app-container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.content-main {
+  flex: 1;
+  overflow-y: auto;
+  padding-top: 130px; /* Espacio para header y tabs */
+  padding-bottom: 140px; /* Espacio para footer */
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+:root {
+  --color-vaporwave1: #48CBA9;
+  --color-vaporwave2: #E5156D;
+  --color-vaporwave3: #552A93;
+  --color-vaporwave4: #FDC47F;
+  --color-vaporwave5: #3D758C;
+
+  /* Variables adicionales para componentes específicos */
+  --color-vaporwave-bg: #242424;
+  --color-vaporwave-list-fav: #FDC47F;
+  --color-vaporwave-list-border: #3D758C;
+}
+
+/* Estilos para el scroll */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-vaporwave3);
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-vaporwave4);
+  border-radius: 0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-vaporwave2);
+}
+
+/* Estilos para el slider de progreso */
+.progress-slider {
+  -webkit-appearance: none;
+  height: 6px;
+  background: var(--color-vaporwave3);
+  border-radius: 0;
+  background-image: linear-gradient(var(--color-vaporwave4), var(--color-vaporwave4));
+  background-repeat: no-repeat;
+  transition: background-size 0.2s ease;
+}
+
+.progress-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  background: var(--color-vaporwave4);
+  border: 1px solid var(--color-vaporwave2);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.progress-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: var(--color-vaporwave4);
+  border: 1px solid var(--color-vaporwave2);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.progress-slider::-ms-thumb {
+  width: 14px;
+  height: 14px;
+  background: var(--color-vaporwave4);
+  border: 1px solid var(--color-vaporwave2);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.progress-slider:hover::-webkit-slider-thumb {
+  background: var(--color-vaporwave1);
+}
+
+.progress-slider:hover::-moz-range-thumb {
+  background: var(--color-vaporwave1);
+}
+
+.progress-slider:hover::-ms-thumb {
+  background: var(--color-vaporwave1);
+}
+
+/* Variables específicas de este componente */
+#app-container {
+  background-color: var(--color-vaporwave3);
+  color: white;
+}
+
+/* Soporte para notch y áreas seguras en dispositivos móviles */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0);
 }
 </style>

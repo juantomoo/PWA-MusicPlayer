@@ -1,9 +1,43 @@
-import { createApp } from 'vue';
-import App from './App.vue';
-import router from './router';
-import './style.css';
+import { createApp } from 'vue'
+import { createRouter, createWebHistory } from 'vue-router'
+import './style.css'
+import './assets/css/tailwind-fixes.css' // Importamos las correcciones CSS
+import App from './App.vue'
 
-const app = createApp(App);
-app.use(router);
-app.mount('#app');
-// No registrar manualmente el service worker, vite-plugin-pwa lo hace automáticamente
+// Importar vistas para el router
+import NowPlayingView from './views/NowPlayingView.vue'
+import EqualizerView from './views/EqualizerView.vue'
+import PlaylistsView from './views/PlaylistsView.vue'
+import LetrasView from './views/LetrasView.vue'
+
+// Configuración de rutas
+const routes = [
+  { path: '/', component: NowPlayingView },
+  { path: '/equalizer', component: EqualizerView },
+  { path: '/playlists', component: PlaylistsView },
+  { path: '/lyrics', component: LetrasView }
+]
+
+// Crear instancia de router
+const router = createRouter({
+  history: createWebHistory(),
+  routes
+})
+
+// Crear y montar la aplicación
+const app = createApp(App)
+app.use(router)
+app.mount('#app')
+
+// Registro del Service Worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/registerSW.js')
+      .then(registration => {
+        console.log('Service worker registrado correctamente:', registration)
+      })
+      .catch(error => {
+        console.error('Error al registrar el service worker:', error)
+      })
+  })
+}

@@ -1,44 +1,130 @@
 <template>
-  <div class="bg-vaporwave3 border-2 border-vaporwave5 rounded-none shadow-inner p-0 w-full max-w-md font-mono">
-    <ul class="max-h-64 overflow-y-auto custom-scrollbar-vaporwave">
-      <li v-for="(track, listIndex) in tracks" :key="track.id"
-        class="flex items-center h-9 px-2 text-xs select-none cursor-pointer group transition-all duration-150"
-        :class="[
-          currentTrack && track.id === currentTrack.id
-            ? 'bg-vaporwave1 text-vaporwave3 font-bold border-l-4 border-vaporwave2 shadow-[0_0_8px_var(--color-vaporwave1)]'
-            : 'hover:bg-vaporwave2 hover:text-vaporwave4 hover:border-l-4 hover:border-vaporwave4 text-vaporwave4'
-        ]">
-        <span class="w-8 text-right text-vaporwave2 mr-2">{{ (listIndex + 1).toString().padStart(2, '0') }}.</span>
-        <span class="truncate flex-1" :title="track.name">{{ track.name }}</span>
-        <span v-if="track.favorite" class="text-vaporwave4 ml-2">★</span>
-        <div class="flex gap-1 items-center ml-2">
-          <button @click.stop="handlePlay(track.id)" class="px-1 py-0.5 text-xs bg-vaporwave3 border border-vaporwave2 text-vaporwave2 rounded-none group-hover:bg-vaporwave2 group-hover:text-vaporwave3 transition">▶</button>
-          <button @click.stop="$emit('favorite', track)" class="px-1 py-0.5 text-xs bg-vaporwave3 border border-vaporwave4 text-vaporwave4 rounded-none group-hover:bg-vaporwave4 group-hover:text-vaporwave3 transition">{{ track.favorite ? '★' : '☆' }}</button>
-          <button @click.stop="$emit('remove', track.id)" class="px-1 py-0.5 text-xs bg-vaporwave3 border border-vaporwave5 text-vaporwave5 rounded-none group-hover:bg-vaporwave5 group-hover:text-vaporwave3 transition">✕</button>
+  <div class="bg-vaporwave3/80 shadow rounded-none">
+    <ul class="divide-y divide-vaporwave5/40">
+      <li v-for="track in tracks" :key="track.id" 
+          class="py-2 px-3 flex justify-between items-center hover:bg-vaporwave3/50 cursor-pointer transition-colors"
+          :class="{ 'bg-vaporwave3': isCurrentTrack(track) }"
+          @click="selectTrack(track)">
+        
+        <!-- Información principal de la pista -->
+        <div class="flex items-center space-x-2 flex-grow overflow-hidden">
+          <!-- Portada miniatura si existe -->
+          <div v-if="track.coverUrl" class="w-10 h-10 flex-shrink-0">
+            <img :src="track.coverUrl" alt="Cover" class="w-full h-full object-cover border border-vaporwave4/50" />
+          </div>
+          <div v-else class="w-10 h-10 flex-shrink-0 bg-vaporwave5/20 border border-vaporwave4/50 flex items-center justify-center text-vaporwave4/70">
+            <span class="text-xs">🎵</span>
+          </div>
+          
+          <!-- Información de texto -->
+          <div class="overflow-hidden">
+            <div class="font-medium text-white truncate">{{ track.name }}</div>
+            <div class="text-vaporwave1 text-xs truncate">
+              {{ track.artist || 'Desconocido' }} • {{ track.album || 'Álbum desconocido' }}
+            </div>
+          </div>
+        </div>
+        
+        <!-- Controles de acciones -->
+        <div class="flex items-center ml-2">
+          <!-- Icono de reproducción o pausado -->
+          <div v-if="isCurrentTrack(track)" class="mr-3 text-vaporwave4">
+            <span v-if="isPlaying">▶️</span>
+            <span v-else>⏸</span>
+          </div>
+          
+          <!-- Favorito -->
+          <button @click.stop="toggleFavorite(track)" class="text-lg p-1" :class="{ 'text-vaporwave2': track.favorite }">
+            <span v-if="track.favorite">❤️</span>
+            <span v-else>🤍</span>
+          </button>
+          
+          <!-- Eliminar de la lista -->
+          <button @click.stop="removeFromPlaylist(track)" class="text-lg p-1 ml-1 text-vaporwave1 hover:text-vaporwave2">
+            <span>❌</span>
+          </button>
         </div>
       </li>
     </ul>
   </div>
 </template>
-<script setup>
-import { usePlayerStore } from '../utils/playerStore.js';
-import audioManager from '../utils/audioManager.js';
 
-defineProps({ tracks: Array, currentTrack: Object });
+<script setup>
+import { computed } from 'vue';
+import { usePlayerStore } from '../utils/playerStore';
+import audioManager from '../utils/audioManager';
+
+const props = defineProps({
+  tracks: {
+    type: Array,
+    required: true,
+  },
+  currentTrack: {
+    type: Object,
+    default: null,
+  },
+});
+
+const emit = defineEmits(['favorite', 'remove']);
 
 const store = usePlayerStore();
+const isPlaying = computed(() => store.state.isPlaying);
 
-function handlePlay(trackId) {
-  const track = store.state.playlist.find(t => t.id === trackId) || store.state.favorites.find(t => t.id === trackId);
-  if (track) {
-    store.setTrack(track);
-    store.setPlaying(true);
-    if (track.fileHandle) {
-      audioManager.playFile(track.fileHandle, store.state.volume);
+// Comprobar si una pista es la actual
+function isCurrentTrack(track) {
+  return props.currentTrack && props.currentTrack.id === track.id;
+}
+
+// Seleccionar una pista
+async function selectTrack(track) {
+  if (track.fileHandle) {
+    try {
+      await audioManager.playFile(track.fileHandle);
+      store.setTrack(track);
+      store.play();
+      
+      // Actualizar MediaSession
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: track.name || 'Pista desconocida',
+          artist: track.artist || 'Artista desconocido',
+          album: track.album || 'Álbum desconocido',
+          artwork: track.coverUrl ? [{ src: track.coverUrl, type: 'image/png' }] : []
+        });
+      }
+    } catch (error) {
+      console.error('Error al reproducir pista:', error);
     }
   }
 }
+
+// Marcar/desmarcar favorito
+function toggleFavorite(track) {
+  const updatedTrack = { ...track, favorite: !track.favorite };
+  emit('favorite', updatedTrack);
+}
+
+// Eliminar de la lista
+function removeFromPlaylist(track) {
+  emit('remove', track.id);
+}
 </script>
+
 <style scoped>
-/* El resto de los estilos de scrollbar ya están en style.css global */
+.custom-scrollbar-vaporwave::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar-vaporwave::-webkit-scrollbar-track {
+  background: var(--color-vaporwave-bg, #242424);
+}
+
+.custom-scrollbar-vaporwave::-webkit-scrollbar-thumb {
+  background-color: var(--color-vaporwave-list-border, #3D758C);
+  border-radius: 0;
+}
+
+.custom-scrollbar-vaporwave::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-vaporwave-list-fav, #FDC47F);
+}
 </style>

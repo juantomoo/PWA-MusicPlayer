@@ -21,7 +21,7 @@ const routes = [
     component: PlaylistsView,
   },
   {
-    path: '/letras',
+    path: '/lyrics',
     name: 'Letras',
     component: LetrasView,
   },
