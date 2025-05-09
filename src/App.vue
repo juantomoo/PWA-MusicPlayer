@@ -1,11 +1,12 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import Tabs from './components/Tabs.vue';
 import PlayerControls from './components/PlayerControls.vue';
 import TrackInfo from './components/TrackInfo.vue';
 import VolumeControl from './components/VolumeControl.vue';
 import DevTools from './components/DevTools.vue';
+import LoadingProgress from './components/LoadingProgress.vue';
 // import DeviceFeatures from './components/DeviceFeatures.vue';
 import { usePlayerStore } from './utils/playerStore.js';
 import audioManager from './utils/audioManager.js';
@@ -14,6 +15,11 @@ import { getDirectoryHandle, clearDirectoryHandle } from './utils/playlistManage
 const isDev = import.meta.env.DEV;
 const router = useRouter();
 const route = useRoute();
+
+// Variables para el seguimiento del progreso de carga
+const isLoadingFiles = ref(false);
+const totalFiles = ref(0);
+const processedFiles = ref(0);
 
 const tabs = [
   { name: 'NowPlaying', label: 'Reproduciendo', path: '/' },
@@ -93,6 +99,7 @@ async function scanDirectory(dirHandle) {
     const covers = {};
     const lyricsFiles = {};
     const playlistFiles = [];
+    
     // 1. Indexar archivos por tipo
     for await (const entry of dirHandle.values()) {
       if (entry.kind === 'file') {
@@ -106,7 +113,8 @@ async function scanDirectory(dirHandle) {
         }
       }
     }
-    // Contar archivos de audio
+    
+    // Contar archivos de audio y preparar la barra de progreso
     let totalAudio = 0;
     for await (const entry of dirHandle.values()) {
       if (entry.kind === 'file') {
@@ -114,7 +122,13 @@ async function scanDirectory(dirHandle) {
         if (["mp3","ogg","wav"].includes(ext)) totalAudio++;
       }
     }
-    let processed = 0;
+    
+    // Inicializar variables de progreso
+    totalFiles.value = totalAudio;
+    processedFiles.value = 0;
+    isLoadingFiles.value = true;
+    
+    // Procesar archivos de audio
     for await (const entry of dirHandle.values()) {
       if (entry.kind === 'file') {
         const ext = entry.name.split('.').pop().toLowerCase();
@@ -168,13 +182,24 @@ async function scanDirectory(dirHandle) {
             coverUrl,
             lyrics
           });
-          processed++;
+          
+          // Actualizar el contador de progreso
+          processedFiles.value++;
+          await new Promise(r => setTimeout(r, 0)); // Permitir actualización del DOM
         }
       }
     }
+    
+    // Finalizar la carga
     store.setPlaylist(tracks);
     if (tracks.length) store.setTrack(tracks[0]);
+    
+    // Ocultar la barra de progreso después de un breve retraso
+    setTimeout(() => {
+      isLoadingFiles.value = false;
+    }, 1000);
   } catch (e) {
+    isLoadingFiles.value = false;
     restoreError.value = 'No se pudo acceder al directorio. Selecciona uno nuevo.';
     await clearDirectoryHandle();
   }
@@ -185,6 +210,19 @@ function setupAudioEvents() {
   // Actualizar tiempo actual en el store
   audioManager.onTimeUpdate(() => {
     store.updateCurrentTime(audioManager.getCurrentTime());
+  });
+  
+  // Depuración para el banner de progreso
+  watch(isLoadingFiles, (newVal) => {
+    console.log('isLoadingFiles cambió a:', newVal);
+  });
+  
+  watch(totalFiles, (newVal) => {
+    console.log('totalFiles cambió a:', newVal);
+  });
+  
+  watch(processedFiles, (newVal) => {
+    console.log('processedFiles cambió a:', newVal);
   });
   
   // Actualizar duración cuando se carga un audio
@@ -328,8 +366,15 @@ onMounted(async () => {
     <!-- Elemento de audio oculto para reproducción -->
     <audio id="audio-player" style="display:none"></audio>
     
+    <!-- Banner de progreso de carga (fuera del footer) -->
+    <LoadingProgress
+      :loading="isLoadingFiles"
+      :processed="processedFiles"
+      :total="totalFiles"
+    />
+    
     <!-- Footer con controles fijo en la parte inferior -->
-    <footer class="bottom-0 left-0 right-0 bg-vaporwave5 shadow-lg z-30 pb-safe">
+    <footer class="bottom-0 left-0 right-0 bg-vaporwave5 shadow-lg z-30 pb-safe relative">
       <div class="footer-info">
         <!-- Información de la pista -->
         <TrackInfo :track="store.state.currentTrack || { name: 'Sin pista', artist: '', album: '', year: '' }" class="info-pista" />

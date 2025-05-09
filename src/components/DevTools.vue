@@ -60,6 +60,15 @@
       <div v-else>No hay pista activa</div>
     </div>
   </div>
+
+  <div class="dev-tools">
+    <div class="dev-panel">
+      <h3>Dev Tools</h3>
+      <button @click="handleForceReset">Reset State</button>
+      <button @click="handleForceBanner">Mostrar Banner</button>
+      <pre>{{ JSON.stringify(store.state, null, 2) }}</pre>
+    </div>
+  </div>
 </template>
 
 <script setup>
@@ -133,6 +142,39 @@ onMounted(() => {
     console.log('PWA instalada correctamente');
   });
 });
+
+const store = usePlayerStore();
+
+// Para probar el banner de progreso
+const isLoadingFiles = ref(false);
+const totalFiles = ref(10);
+const processedFiles = ref(0);
+
+function handleForceReset() {
+  store.reset();
+}
+
+function handleForceBanner() {
+  // Mostrar el banner de carga para pruebas
+  window.isLoadingFiles = true;
+  window.totalFiles = 10;
+  window.processedFiles = 0;
+  
+  // Simular progreso
+  let count = 0;
+  const interval = setInterval(() => {
+    count++;
+    window.processedFiles = count;
+    console.log(`Progreso simulado: ${count}/10`);
+    if (count >= 10) {
+      clearInterval(interval);
+      setTimeout(() => {
+        window.isLoadingFiles = false;
+        console.log('Banner de carga ocultado');
+      }, 1000);
+    }
+  }, 500);
+}
 </script>
 
 <style scoped>
@@ -149,5 +191,48 @@ table {
 table td, table th {
   padding: 0.25rem 0.5rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dev-tools {
+  position: fixed;
+  right: 0;
+  bottom: 150px;
+  width: 320px;
+  max-height: 300px;
+  background: rgba(0,0,0,0.8);
+  color: lime;
+  font-family: monospace;
+  font-size: 10px;
+  z-index: 9999;
+  overflow: auto;
+}
+
+.dev-panel {
+  padding: 10px;
+}
+
+.dev-panel pre {
+  white-space: pre-wrap;
+}
+
+.dev-panel button {
+  background: #333;
+  color: lime;
+  border: 1px solid lime;
+  margin: 5px;
+  padding: 2px 5px;
+  font-family: monospace;
+  cursor: pointer;
+}
+
+.dev-panel button:active {
+  background: lime;
+  color: black;
+}
+
+h3 {
+  margin-top: 0;
+  border-bottom: 1px solid lime;
+  padding-bottom: 5px;
 }
 </style>
