@@ -39,7 +39,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue';
-import { usePlayerStore } from '../utils/playerStore';
+import { usePlayerStore } from '../store/playerStore';
 
 const props = defineProps({
   track: {

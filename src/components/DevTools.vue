@@ -73,7 +73,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue';
-import { usePlayerStore } from '../utils/playerStore';
+import { usePlayerStore } from '../store/playerStore';
 
 // Acceder a las variables de entorno en el script
 const mode = import.meta.env.MODE;

@@ -2,6 +2,7 @@ import { createApp } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 import './style.css'
 import App from './App.vue'
+import { createPinia } from 'pinia'
 
 // Importar vistas para el router
 import NowPlayingView from './views/NowPlayingView.vue'
@@ -25,6 +26,11 @@ const router = createRouter({
 
 // Crear y montar la aplicación
 const app = createApp(App)
+
+// Crear instancia de Pinia
+const pinia = createPinia();
+app.use(pinia);
+
 app.use(router)
 app.mount('#app')
 

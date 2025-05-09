@@ -1,131 +1,178 @@
 <template>
-  <div class="bg-vaporwave3/80 shadow rounded-none">
-    <ul class="divide-y divide-vaporwave5/40">
-      <li v-for="track in tracks" :key="track.id" 
-          class="py-2 px-3 flex justify-between items-center hover:bg-vaporwave3/50 cursor-pointer transition-colors"
-          :class="{ 'bg-vaporwave3': isCurrentTrack(track) }"
-          @click="selectTrack(track)">
-        
-        <!-- Información principal de la pista -->
-        <div class="flex items-center space-x-2 flex-grow overflow-hidden">
-          <!-- Portada miniatura si existe -->
-          <div v-if="track.coverUrl" class="w-10 h-10 flex-shrink-0">
-            <img :src="track.coverUrl" alt="Cover" class="w-full h-full object-cover border border-vaporwave4/50" />
-          </div>
-          <div v-else class="w-10 h-10 flex-shrink-0 bg-vaporwave5/20 border border-vaporwave4/50 flex items-center justify-center text-vaporwave4/70">
-            <span class="text-xs">🎵</span>
-          </div>
-          
-          <!-- Información de texto -->
-          <div class="overflow-hidden">
-            <div class="font-medium text-white truncate">{{ track.name }}</div>
-            <div class="text-vaporwave1 text-xs truncate">
-              {{ track.artist || 'Desconocido' }} • {{ track.album || 'Álbum desconocido' }}
+  <div class="playlist-table-container">
+    <div class="playlist-table-controls">
+      <input v-model="filterText" type="text" placeholder="Filtrar canciones..." class="playlist-filter-input" />
+    </div>
+    <table class="playlist-table">
+      <thead>
+        <tr>
+          <th @click="sortBy('name')">Título <span v-if="sortField==='name'">{{ sortOrder==='asc'?'▲':'▼' }}</span></th>
+          <th @click="sortBy('artist')">Artista <span v-if="sortField==='artist'">{{ sortOrder==='asc'?'▲':'▼' }}</span></th>
+          <th @click="sortBy('album')">Álbum <span v-if="sortField==='album'">{{ sortOrder==='asc'?'▲':'▼' }}</span></th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="(track, idx) in filteredTracks" :key="track.id" :class="{active: isCurrentTrack(track)}" @click="playTrack(track)">
+          <td>
+            <div class="track-title-cell">
+              <img v-if="track.coverArt" :src="track.coverArt" alt="Cover" class="track-cover-thumb" />
+              <span>{{ track.name || 'Desconocido' }}</span>
             </div>
-          </div>
-        </div>
-        
-        <!-- Controles de acciones -->
-        <div class="flex items-center ml-2">
-          <!-- Icono de reproducción o pausado -->
-          <div v-if="isCurrentTrack(track)" class="mr-3 text-vaporwave4">
-            <span v-if="isPlaying">▶️</span>
-            <span v-else>⏸</span>
-          </div>
-          
-          <!-- Favorito -->
-          <button @click.stop="toggleFavorite(track)" class="text-lg p-1" :class="{ 'text-vaporwave2': track.favorite }">
-            <span v-if="track.favorite">❤️</span>
-            <span v-else>🤍</span>
-          </button>
-          
-          <!-- Eliminar de la lista -->
-          <button @click.stop="removeFromPlaylist(track)" class="text-lg p-1 ml-1 text-vaporwave1 hover:text-vaporwave2">
-            <span>❌</span>
-          </button>
-        </div>
-      </li>
-    </ul>
+          </td>
+          <td>{{ track.artist || 'Desconocido' }}</td>
+          <td>{{ track.album || 'Desconocido' }}</td>
+          <td>
+            <button @click.stop="toggleFavorite(track)" :class="{fav: track.favorite}">
+              <span v-if="track.favorite">❤️</span>
+              <span v-else>🤍</span>
+            </button>
+            <button @click.stop="removeFromPlaylist(track)">❌</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <div v-if="filteredTracks.length === 0" class="playlist-empty">No hay canciones para mostrar</div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue';
-import playerStore from '../store/playerStore';
+import { ref, computed, watch } from 'vue';
+import { usePlayerStore } from '../store/playerStore';
 import audioManager from '../utils/audioManager';
 import favoritesManager from '../utils/favoritesManager';
 
 const props = defineProps({
-  tracks: {
-    type: Array,
-    required: true,
-  },
-  currentTrack: {
-    type: Object,
-    default: null,
-  },
+  tracks: { type: Array, required: true },
+  currentTrack: { type: Object, default: null },
+});
+const emit = defineEmits(['favorite', 'remove']);
+const playerStore = usePlayerStore();
+
+const filterText = ref('');
+const sortField = ref('name');
+const sortOrder = ref('asc');
+
+const filteredTracks = computed(() => {
+  let result = [...props.tracks];
+  if (filterText.value) {
+    const term = filterText.value.toLowerCase();
+    result = result.filter(track =>
+      (track.name && track.name.toLowerCase().includes(term)) ||
+      (track.artist && track.artist.toLowerCase().includes(term)) ||
+      (track.album && track.album.toLowerCase().includes(term))
+    );
+  }
+  result.sort((a, b) => {
+    const aVal = a[sortField.value] || '';
+    const bVal = b[sortField.value] || '';
+    return sortOrder.value === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+  });
+  return result;
 });
 
-const emit = defineEmits(['favorite', 'remove']);
-
-const store = playerStore;
-const isPlaying = computed(() => store.isPlaying);
-
-// Comprobar si una pista es la actual
-function isCurrentTrack(track) {
-  return props.currentTrack && props.currentTrack.id === track.id;
-}
-
-// Seleccionar una pista
-async function selectTrack(track) {
-  if (track.fileHandle) {
-    try {
-      await audioManager.playFile(track.fileHandle);
-      store.setTrack(track);
-      store.play();
-      
-      // Actualizar MediaSession
-      if ('mediaSession' in navigator) {
-        navigator.mediaSession.metadata = new MediaMetadata({
-          title: track.name || 'Pista desconocida',
-          artist: track.artist || 'Artista desconocido',
-          album: track.album || 'Álbum desconocido',
-          artwork: track.coverUrl ? [{ src: track.coverUrl, type: 'image/png' }] : []
-        });
-      }
-    } catch (error) {
-      console.error('Error al reproducir pista:', error);
-    }
+function sortBy(field) {
+  if (sortField.value === field) {
+    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortField.value = field;
+    sortOrder.value = 'asc';
   }
 }
 
-// Marcar/desmarcar favorito
+function isCurrentTrack(track) {
+  return playerStore.currentTrack && playerStore.currentTrack.id === track.id;
+}
+
+async function playTrack(track) {
+  // Actualizar el orden global de reproducción según el filtro/orden actual
+  playerStore.setGlobalPlaylist(filteredTracks.value);
+  playerStore.setCurrentTrack(track);
+  try {
+    await audioManager.playFile(track.fileHandle);
+    playerStore.setPlayingState(true);
+  } catch (error) {
+    console.error('Error al reproducir pista:', error);
+  }
+}
+
 async function toggleFavorite(track) {
   const updated = await favoritesManager.toggleFavorite(track);
   emit('favorite', { ...track, favorite: updated });
 }
 
-// Eliminar de la lista
 function removeFromPlaylist(track) {
   emit('remove', track.id);
 }
 </script>
 
 <style scoped>
-.custom-scrollbar-vaporwave::-webkit-scrollbar {
-  width: 6px;
+.playlist-table-container {
+  width: 100%;
+  background: var(--color-vaporwave3);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+  padding: 0.5rem 0.5rem 1rem 0.5rem;
 }
-
-.custom-scrollbar-vaporwave::-webkit-scrollbar-track {
-  background: var(--color-vaporwave-bg, #242424);
+.playlist-table-controls {
+  margin-bottom: 0.5rem;
 }
-
-.custom-scrollbar-vaporwave::-webkit-scrollbar-thumb {
-  background-color: var(--color-vaporwave-list-border, #3D758C);
-  border-radius: 0;
+.playlist-filter-input {
+  width: 100%;
+  padding: 0.5rem;
+  border-radius: 4px;
+  border: 1px solid var(--color-vaporwave4);
+  background: rgba(0,0,0,0.1);
+  color: white;
 }
-
-.custom-scrollbar-vaporwave::-webkit-scrollbar-thumb:hover {
-  background-color: var(--color-vaporwave-list-fav, #FDC47F);
+.playlist-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: transparent;
+}
+.playlist-table th {
+  background: var(--color-vaporwave4);
+  color: white;
+  cursor: pointer;
+  padding: 0.5rem;
+  user-select: none;
+  font-size: 0.95em;
+}
+.playlist-table td {
+  padding: 0.5rem;
+  color: white;
+  background: rgba(0,0,0,0.1);
+}
+.playlist-table tr.active {
+  background: var(--color-vaporwave1);
+  color: white;
+}
+.track-title-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.track-cover-thumb {
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--color-vaporwave4);
+}
+button {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 1.1em;
+  margin-right: 0.2em;
+}
+button.fav {
+  color: var(--color-vaporwave2);
+}
+.playlist-empty {
+  text-align: center;
+  color: var(--color-vaporwave4);
+  margin-top: 1rem;
 }
 </style>

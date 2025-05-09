@@ -1,226 +1,229 @@
 <template>
   <div class="now-playing">
-    <h2>Reproduciendo ahora</h2>
-    <div class="controls-header">
-      <button @click="loadMusicLibrary" :disabled="loading">Seleccionar directorio de música</button>
-      <button v-if="playlist.length" @click="clearPlaylist" class="clear-button">Borrar lista</button>
-    </div>
-    <div v-if="error" class="empty-state">
-      <p>{{ error }}</p>
-      <button @click="loadMusicLibrary" :disabled="loading">Seleccionar directorio de música</button>
-    </div>
-    <div v-else-if="!currentTrack" class="empty-state">
-      <p>No hay pistas cargadas</p>
-      <button @click="loadMusicLibrary" :disabled="loading">Seleccionar directorio de música</button>
-    </div>
-    <div v-else class="track-info">
+    <div v-if="currentTrack" class="track-container">
       <div class="cover-container">
-        <img v-if="currentTrack.coverUrl" :src="currentTrack.coverUrl" alt="Portada" class="cover" />
+        <img v-if="currentTrack.coverUrl" :src="currentTrack.coverUrl" alt="Cover Art" class="cover-art" />
         <div v-else class="cover-placeholder">
-          <span>Sin portada</span>
+          <span>🎵</span>
         </div>
       </div>
-      <div class="track-details">
-        <h3>{{ currentTrack.name }}</h3>
-        <p class="artist">{{ currentTrack.artist || 'Artista desconocido' }}</p>
-        <p class="album">{{ currentTrack.album || 'Álbum desconocido' }}</p>
+      <div class="track-info">
+        <h2 class="track-title">{{ currentTrack.name || 'Nombre desconocido' }}</h2>
+        <h3 class="artist-name">{{ currentTrack.artist || 'Artista desconocido' }}</h3>
+        <p class="album-title">{{ currentTrack.album || 'Álbum desconocido' }}</p>
+        
+        <!-- Información adicional -->
+        <div class="track-metadata">
+          <div class="metadata-item" v-if="duration">
+            <span class="metadata-label">Duración:</span>
+            <span class="metadata-value">{{ formatTime(duration) }}</span>
+          </div>
+          <div class="metadata-item" v-if="currentTimeFormatted">
+            <span class="metadata-label">Tiempo actual:</span>
+            <span class="metadata-value">{{ currentTimeFormatted }}</span>
+          </div>
+          <div class="metadata-item" v-if="currentTrack.genre">
+            <span class="metadata-label">Género:</span>
+            <span class="metadata-value">{{ currentTrack.genre }}</span>
+          </div>
+          <div class="metadata-item" v-if="currentTrack.year">
+            <span class="metadata-label">Año:</span>
+            <span class="metadata-value">{{ currentTrack.year }}</span>
+          </div>
+        </div>
       </div>
     </div>
-    <div class="track-list">
-      <h3>Lista de reproducción</h3>
-      <div v-if="playlist.length === 0" class="empty-playlist">
-        No hay pistas en la lista de reproducción
+    <div v-else class="no-track">
+      <div class="no-track-icon">
+        <span>🎧</span>
       </div>
-      <ul v-else>
-        <li 
-          v-for="(track, index) in playlist" 
-          :key="track.id"
-          :class="{ active: currentTrack && currentTrack.id === track.id }"
-          @click="playTrack(track)"
-        >
-          <span class="track-number">{{ index + 1 }}</span>
-          <div class="track-info-mini">
-            <div class="track-name">{{ track.name }}</div>
-            <div class="track-artist">{{ track.artist || 'Desconocido' }}</div>
-          </div>
-        </li>
-      </ul>
+      <h2>No hay pista seleccionada</h2>
+      <p class="hint">Selecciona una canción desde la vista de Playlists</p>
     </div>
   </div>
 </template>
 
-<script>
-import { computed } from 'vue';
-import playerStore from '../store/playerStore';
+<script setup>
+import { computed, ref, watchEffect } from 'vue';
+import { usePlayerStore } from '../store/playerStore';
+import audioManager from '../utils/audioManager';
 
-export default {
-  name: 'NowPlayingView',
-  setup() {
-    return {
-      playlist: computed(() => playerStore.playlist),
-      currentTrack: computed(() => playerStore.currentTrack),
-      loading: computed(() => playerStore.loading),
-      error: computed(() => playerStore.error),
-      loadMusicLibrary: playerStore.loadMusicLibrary,
-      clearPlaylist: playerStore.clearPlaylist,
-      playTrack: playerStore.setTrack
-    };
-  }
+const playerStore = usePlayerStore();
+const currentTrack = computed(() => playerStore.currentTrack);
+const currentTime = ref(0);
+const duration = ref(0);
+
+// Formateador de tiempo (mm:ss)
+const formatTime = (timeInSeconds) => {
+  if (!timeInSeconds || isNaN(timeInSeconds)) return '00:00';
+  const minutes = Math.floor(timeInSeconds / 60);
+  const seconds = Math.floor(timeInSeconds % 60);
+  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 };
+
+// Tiempo actual formateado
+const currentTimeFormatted = computed(() => formatTime(currentTime.value));
+
+// Actualizar tiempo y duración
+watchEffect(() => {
+  if (playerStore.currentTime !== undefined) {
+    currentTime.value = playerStore.currentTime;
+  }
+  
+  if (playerStore.duration !== undefined) {
+    duration.value = playerStore.duration;
+  }
+});
 </script>
 
 <style scoped>
 .now-playing {
-  padding: var(--space-md);
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-h2 {
-  margin-bottom: var(--space-lg);
-  color: var(--color-vaporwave4);
-}
-
-.controls-header {
   display: flex;
-  justify-content: space-between;
-  margin-bottom: var(--space-lg);
-}
-
-.empty-state {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
-  padding: var(--space-xl);
-  background-color: rgba(0, 0, 0, 0.2);
-  border-radius: 8px;
-  margin-bottom: var(--space-lg);
+  padding: var(--space-md);
+  height: calc(100vh - 120px); /* Considerando el footer con los controles principales */
+  overflow-y: auto;
 }
 
-.track-info {
+.track-container {
   display: flex;
-  margin-bottom: var(--space-lg);
-  background-color: rgba(0, 0, 0, 0.2);
-  border-radius: 8px;
-  padding: var(--space-md);
+  flex-direction: column;
+  align-items: center;
+  max-width: 850px;
+  width: 100%;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  padding: var(--space-lg);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+}
+
+@media (min-width: 768px) {
+  .track-container {
+    flex-direction: row;
+    align-items: flex-start;
+    text-align: left;
+  }
 }
 
 .cover-container {
-  width: 150px;
-  height: 150px;
+  margin-bottom: var(--space-md);
   flex-shrink: 0;
-  margin-right: var(--space-md);
 }
 
-.cover {
-  width: 100%;
-  height: 100%;
+@media (min-width: 768px) {
+  .cover-container {
+    margin-bottom: 0;
+    margin-right: var(--space-xl);
+  }
+}
+
+.cover-art {
+  width: 300px;
+  height: 300px;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: 10px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
 }
 
 .cover-placeholder {
-  width: 100%;
-  height: 100%;
+  width: 300px;
+  height: 300px;
   display: flex;
   align-items: center;
   justify-content: center;
   background-color: var(--color-vaporwave5);
-  color: rgba(255, 255, 255, 0.5);
-  border-radius: 4px;
+  background-image: linear-gradient(45deg, var(--color-vaporwave5) 0%, var(--color-vaporwave4) 100%);
+  border-radius: 10px;
+  font-size: 100px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
 }
 
-.track-details {
+.track-info {
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
 }
 
-.track-details h3 {
+.track-title {
+  font-size: 2rem;
+  margin: var(--space-md) 0 var(--space-sm);
+  color: var(--color-vaporwave1);
+  text-shadow: 0 0 10px rgba(var(--color-vaporwave1-rgb), 0.5);
+}
+
+.artist-name {
+  font-size: 1.5rem;
   margin: 0 0 var(--space-sm);
   color: var(--color-vaporwave4);
 }
 
-.artist, .album {
-  margin: 0;
-  color: var(--color-text-secondary);
+.album-title {
+  font-size: 1.2rem;
+  margin: 0 0 var(--space-md);
+  color: white;
+  opacity: 0.8;
 }
 
-.track-list {
-  background-color: rgba(0, 0, 0, 0.2);
+.track-metadata {
+  margin-top: var(--space-lg);
+  background-color: rgba(255, 255, 255, 0.05);
   border-radius: 8px;
   padding: var(--space-md);
 }
 
-.track-list h3 {
-  margin-top: 0;
-  color: var(--color-vaporwave1);
-}
-
-.empty-playlist {
-  text-align: center;
-  padding: var(--space-lg);
-  color: var(--color-text-secondary);
-}
-
-ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-li {
+.metadata-item {
   display: flex;
-  align-items: center;
-  padding: var(--space-sm);
-  border-radius: 4px;
-  margin-bottom: var(--space-xs);
-  cursor: pointer;
-  transition: background-color 0.2s;
+  justify-content: space-between;
+  padding: var(--space-xs) 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-li:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+.metadata-item:last-child {
+  border-bottom: none;
 }
 
-li.active {
-  background-color: var(--color-vaporwave2);
-}
-
-.track-number {
-  width: 30px;
-  text-align: center;
-  margin-right: var(--space-sm);
-  color: var(--color-text-secondary);
-}
-
-.track-info-mini {
-  flex: 1;
-}
-
-.track-artist {
-  font-size: 0.9em;
-  color: var(--color-text-secondary);
-}
-
-button {
-  background-color: var(--color-vaporwave1);
-  color: var(--color-bg-dark);
-  padding: var(--space-sm) var(--space-lg);
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+.metadata-label {
   font-weight: bold;
+  color: var(--color-vaporwave2);
 }
 
-button:hover {
-  background-color: var(--color-vaporwave4);
+.metadata-value {
+  color: white;
 }
 
-.clear-button {
-  background-color: var(--color-vaporwave3);
+.no-track {
+  margin: auto;
+  padding: var(--space-xl);
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  max-width: 400px;
+  width: 100%;
 }
 
-.clear-button:hover {
-  background-color: var(--color-vaporwave5);
+.no-track-icon {
+  font-size: 5rem;
+  margin-bottom: var(--space-md);
+  opacity: 0.5;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+}
+
+.no-track h2 {
+  font-size: 1.5rem;
+  margin-bottom: var(--space-sm);
+  color: var(--color-vaporwave4);
+}
+
+.hint {
+  font-size: 1rem;
+  opacity: 0.7;
+  color: var(--color-text-secondary);
 }
 </style>

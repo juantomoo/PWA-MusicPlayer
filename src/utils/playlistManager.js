@@ -1,4 +1,5 @@
 import localforage from 'localforage';
+import { getDirectoryHandle } from './permissions';
 
 // Configuración de localforage para playlists
 localforage.config({
@@ -17,21 +18,20 @@ class PlaylistManager {
   }
   
   /**
-   * Carga las listas de reproducción guardadas
+   * Carga las listas de reproducción guardadas y asegura que siempre haya una global
    */
   async loadPlaylists() {
     try {
       const savedPlaylists = await localforage.getItem('playlists');
-      
-      if (savedPlaylists && Array.isArray(savedPlaylists)) {
+      if (savedPlaylists && Array.isArray(savedPlaylists) && savedPlaylists.length > 0) {
         this.playlists = savedPlaylists;
         this.loaded = true;
         return this.playlists;
       } else {
-        // Si no hay listas guardadas, creamos una por defecto
+        // Si no hay listas guardadas, crear una vacía
         this.playlists = [{
-          id: 'favorites',
-          name: 'Favoritos',
+          id: `playlist_${Date.now()}`,
+          name: 'Mi música',
           tracks: []
         }];
         this.loaded = true;
@@ -67,6 +67,14 @@ class PlaylistManager {
     return this.playlists;
   }
   
+  /**
+   * Devuelve la playlist global (la única) desde almacenamiento local
+   */
+  async getGlobalPlaylist() {
+    const playlists = await this.loadPlaylists();
+    return playlists && playlists.length > 0 ? playlists[0] : null;
+  }
+
   /**
    * Obtiene una lista de reproducción por su ID
    */
@@ -396,6 +404,308 @@ class PlaylistManager {
       console.error('Error al analizar JSON:', error);
       throw new Error(`Error al importar: ${error.message}`);
     }
+  }
+
+  /**
+   * Rescans the playlists
+   */
+  async rescanPlaylists() {
+    try {
+      // Simulate rescanning playlists (replace with actual logic if needed)
+      const playlists = await this.fetchPlaylistsFromLibrary();
+      await localforage.setItem('playlists', playlists);
+      return playlists;
+    } catch (error) {
+      console.error('Error rescanning playlists:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Fetches playlists from the library
+   */
+  async fetchPlaylistsFromLibrary() {
+    // Placeholder for fetching playlists from the library
+    return [
+      { id: '1', name: 'Favoritos', tracks: [] },
+      { id: '2', name: 'Recientes', tracks: [] },
+    ];
+  }
+
+  /**
+   * Selects a music directory
+   */
+  async selectMusicDirectory() {
+    try {
+      const directoryHandle = await window.showDirectoryPicker();
+      await localforage.setItem('musicDirectory', directoryHandle);
+      return directoryHandle;
+    } catch (error) {
+      console.error('Error selecting music directory:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Scans a music directory
+   */
+  async scanMusicDirectory(directoryHandle = null) {
+    try {
+      if (!directoryHandle) {
+        directoryHandle = await localforage.getItem('musicDirectory');
+        if (!directoryHandle) {
+          console.warn('No music directory set');
+          return;
+        }
+      }
+
+      const playlists = await this.fetchPlaylistsFromDirectory(directoryHandle);
+      await localforage.setItem('playlists', playlists);
+    } catch (error) {
+      if (error.name === 'NotAllowedError') {
+        console.error('Permiso denegado para acceder al directorio.');
+      } else {
+        console.error('Error inesperado al escanear el directorio:', error);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Fetches playlists from a directory
+   */
+  async fetchPlaylistsFromDirectory(directoryHandle) {
+    const playlists = [];
+    for await (const entry of directoryHandle.values()) {
+      if (entry.kind === 'file' && entry.name.endsWith('.mp3')) {
+        const file = await entry.getFile();
+        const metadata = await this.extractMetadata(file);
+        playlists.push({
+          id: metadata.id,
+          name: metadata.title || entry.name,
+          tracks: [{
+            id: metadata.id,
+            name: metadata.title,
+            artist: metadata.artist,
+            album: metadata.album,
+            fileHandle: entry,
+          }],
+        });
+      }
+    }
+    return playlists;
+  }
+
+  /**
+   * Extrae metadatos de un archivo de audio
+   */
+  async extractMetadata(fileOrHandle) {
+    try {
+      // Si es un FileSystemFileHandle, obtenemos el archivo
+      const file = fileOrHandle.getFile ? await fileOrHandle.getFile() : fileOrHandle;
+      
+      // ID único para la pista
+      const id = `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Si window.jsmediatags está disponible (importado desde public/jsmediatags.min.js)
+      if (window.jsmediatags) {
+        return new Promise((resolve) => {
+          window.jsmediatags.read(file, {
+            onSuccess: (tag) => {
+              const tags = tag.tags;
+              let picture = '';
+              
+              // Extraer imagen de portada si existe
+              if (tags.picture) {
+                const { data, format } = tags.picture;
+                let base64String = "";
+                for (let i = 0; i < data.length; i++) {
+                  base64String += String.fromCharCode(data[i]);
+                }
+                picture = `data:${format};base64,${window.btoa(base64String)}`;
+              }
+              
+              resolve({
+                id,
+                title: tags.title || file.name,
+                artist: tags.artist || 'Desconocido',
+                album: tags.album || 'Desconocido',
+                year: tags.year || '',
+                coverArt: picture,
+                fileHandle: fileOrHandle
+              });
+            },
+            onError: () => {
+              // En caso de error, devolvemos metadatos básicos
+              resolve({
+                id,
+                title: file.name,
+                artist: 'Desconocido',
+                album: 'Desconocido',
+                coverArt: '',
+                fileHandle: fileOrHandle
+              });
+            }
+          });
+        });
+      } else {
+        // Si jsmediatags no está disponible, devolvemos metadatos básicos
+        return {
+          id,
+          title: file.name,
+          artist: 'Desconocido',
+          album: 'Desconocido',
+          coverArt: '',
+          fileHandle: fileOrHandle
+        };
+      }
+    } catch (error) {
+      console.error('Error al extraer metadatos:', error);
+      const id = `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      return {
+        id,
+        title: fileOrHandle.name || 'Desconocido',
+        artist: 'Desconocido',
+        album: 'Desconocido',
+        coverArt: '',
+        fileHandle: fileOrHandle
+      };
+    }
+  }
+
+  /**
+   * Escanea el directorio seleccionado y crea una sola playlist con todas las pistas encontradas
+   */
+  async selectAndScanMusicDirectory() {
+    try {
+      console.log('Solicitando directorio de música...');
+      const directoryHandle = await getDirectoryHandle();
+      console.log('Directorio seleccionado:', directoryHandle.name);
+
+      // Verificar y solicitar permisos persistentes
+      console.log('Verificando permisos...');
+      const permission = await directoryHandle.queryPermission({ mode: 'read' });
+      if (permission !== 'granted') {
+        console.log('Solicitando permisos...');
+        const requestPermission = await directoryHandle.requestPermission({ mode: 'read' });
+        if (requestPermission !== 'granted') {
+          throw new Error('Permiso denegado para acceder al directorio.');
+        }
+      }
+      console.log('Permisos concedidos');
+
+      // Almacenar el directorio seleccionado
+      await localforage.setItem('musicDirectory', directoryHandle);
+      console.log('Directorio guardado en localforage');
+
+      // Recorrer recursivamente el directorio y subdirectorios para recolectar todas las pistas
+      const allTracks = [];
+      async function scanDir(dirHandle) {
+        for await (const entry of dirHandle.values()) {
+          if (entry.kind === 'file' && entry.name.toLowerCase().endsWith('.mp3')) {
+            try {
+              const metadata = await playlistManager.extractMetadata(entry);
+              allTracks.push({
+                id: `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                name: metadata.title || entry.name.replace('.mp3', ''),
+                artist: metadata.artist || 'Desconocido',
+                album: metadata.album || 'Desconocido',
+                coverArt: metadata.coverArt || '',
+                fileHandle: entry
+              });
+            } catch (fileError) {
+              console.error(`Error procesando archivo ${entry.name}:`, fileError);
+            }
+          } else if (entry.kind === 'directory') {
+            await scanDir(entry);
+          }
+        }
+      }
+      await scanDir(directoryHandle);
+
+      // Crear una sola playlist con todas las pistas
+      const playlist = {
+        id: `playlist_${Date.now()}`,
+        name: directoryHandle.name || 'Mi música',
+        tracks: allTracks
+      };
+
+      // Guardar la playlist como única en almacenamiento local
+      const playlists = [playlist];
+      await localforage.setItem('playlists', playlists);
+
+      return playlists;
+    } catch (error) {
+      console.error('Error al seleccionar y escanear el directorio:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Extrae metadatos ID3 de una pista
+   */
+  extractID3Metadata(track) {
+    return new Promise((resolve) => {
+      window.jsmediatags.read(track.file, {
+        onSuccess: (tag) => {
+          const { title, artist, album, picture } = tag.tags;
+          track.name = title || track.name;
+          track.artist = artist || 'Desconocido';
+          track.album = album || 'Desconocido';
+          if (picture) {
+            const base64String = picture.data.reduce((data, byte) => data + String.fromCharCode(byte), '');
+            track.coverUrl = `data:${picture.format};base64,${btoa(base64String)}`;
+          }
+          resolve(track);
+        },
+        onError: () => resolve(track),
+      });
+    });
+  }
+
+  /**
+   * Obtiene el directorio de música guardado
+   */
+  async getMusicDirectory() {
+    try {
+      const directoryHandle = await localforage.getItem('musicDirectory');
+      
+      if (directoryHandle) {
+        // Verificar permisos para el directorio guardado
+        const permission = await directoryHandle.queryPermission({ mode: 'read' });
+        
+        if (permission !== 'granted') {
+          console.log('Solicitando permiso para acceder al directorio guardado...');
+          const requestPermission = await directoryHandle.requestPermission({ mode: 'read' });
+          
+          if (requestPermission !== 'granted') {
+            console.warn('Permiso denegado para el directorio guardado');
+            return null;
+          }
+        }
+        
+        return directoryHandle;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error al obtener el directorio de música:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Actualiza una playlist existente
+   */
+  async updatePlaylist(playlist) {
+    if (!playlist || !playlist.id) return false;
+    
+    const index = this.playlists.findIndex(p => p.id === playlist.id);
+    if (index === -1) return false;
+    
+    this.playlists[index] = playlist;
+    await this.savePlaylists();
+    return true;
   }
 }
 

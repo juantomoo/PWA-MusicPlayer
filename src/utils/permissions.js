@@ -15,6 +15,17 @@ export function playSampleAudio() {
   });
 }
 
+// Implementación de getDirectoryHandle para gestionar permisos del sistema de archivos
+export async function getDirectoryHandle() {
+  try {
+    const directoryHandle = await window.showDirectoryPicker();
+    return directoryHandle;
+  } catch (error) {
+    console.error('Error al obtener el directorio:', error);
+    throw error;
+  }
+}
+
 /**
  * Utilidad para gestionar permisos del sistema de archivos
  * Implementa funciones para solicitar y verificar permisos para File System Access API

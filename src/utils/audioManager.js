@@ -1,4 +1,4 @@
-import playerStore from '../store/playerStore';
+import { usePlayerStore } from '../store/playerStore';
 
 /**
  * Gestor de reproducción de audio
@@ -14,6 +14,7 @@ class AudioManager {
     this.analyserNode = null;
     this.equalizerNodes = [];
     this.compressorNode = null;
+    this.playerStore = null;
 
     this.initialized = false;
     this.setupMediaSession();
@@ -26,15 +27,21 @@ class AudioManager {
   initialize() {
     if (this.initialized) return;
     
-    // Buscamos el elemento de audio en el DOM
-    this.audioElement = document.getElementById('audio-player');
-    if (!this.audioElement) {
-      console.error('No se encontró el elemento audio');
-      return;
-    }
-    
-    // Creamos el contexto de audio
     try {
+      // Obtener la instancia de Pinia Store
+      this.playerStore = usePlayerStore();
+      
+      // Buscamos el elemento de audio en el DOM o lo creamos si no existe
+      this.audioElement = document.getElementById('audio-player');
+      if (!this.audioElement) {
+        console.warn('No se encontró el elemento audio, creando uno nuevo');
+        this.audioElement = document.createElement('audio');
+        this.audioElement.id = 'audio-player';
+        this.audioElement.style.display = 'none';
+        document.body.appendChild(this.audioElement);
+      }
+      
+      // Creamos el contexto de audio
       this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
       
       // Conectamos el elemento de audio al contexto
@@ -46,7 +53,11 @@ class AudioManager {
       
       // Creamos y conectamos nodo de ganancia (volumen)
       this.gainNode = this.audioContext.createGain();
-      this.gainNode.gain.value = playerStore.volume;
+      if (this.playerStore) {
+        this.gainNode.gain.value = this.playerStore.volume;
+      } else {
+        this.gainNode.gain.value = 0.7; // Valor por defecto
+      }
       
       // Creamos y conectamos el analizador para visualizaciones
       this.analyserNode = this.audioContext.createAnalyser();
@@ -78,95 +89,115 @@ class AudioManager {
   setupEqualizer() {
     this.equalizerNodes = [];
     if (!this.audioContext) return;
-    playerStore.state.equalizer.bands.forEach(band => {
-      const filter = this.audioContext.createBiquadFilter();
-      filter.type = 'peaking';
-      filter.frequency.value = band.frequency;
-      filter.Q.value = 1; 
-      filter.gain.value = band.gain;
-      this.equalizerNodes.push(filter);
-    });
+    
+    if (this.playerStore && this.playerStore.equalizer && this.playerStore.equalizer.bands) {
+      this.playerStore.equalizer.bands.forEach(band => {
+        const filter = this.audioContext.createBiquadFilter();
+        filter.type = 'peaking';
+        filter.frequency.value = band.frequency;
+        filter.Q.value = 1; 
+        filter.gain.value = band.gain;
+        this.equalizerNodes.push(filter);
+      });
+    } else {
+      // Bandas por defecto si no hay store disponible
+      const defaultBands = [
+        { frequency: 60, gain: 0 },
+        { frequency: 250, gain: 0 },
+        { frequency: 1000, gain: 0 },
+        { frequency: 4000, gain: 0 },
+        { frequency: 16000, gain: 0 }
+      ];
+      
+      defaultBands.forEach(band => {
+        const filter = this.audioContext.createBiquadFilter();
+        filter.type = 'peaking';
+        filter.frequency.value = band.frequency;
+        filter.Q.value = 1; 
+        filter.gain.value = band.gain;
+        this.equalizerNodes.push(filter);
+      });
+    }
   }
 
   /**
-   * Applies the current EQ enabled/disabled state to the audio graph.
+   * Aplica el estado actual del ecualizador (activado/desactivado) al grafo de audio.
    */
   applyEqStateChange() {
     if (!this.initialized) return;
 
-    if (playerStore.state.equalizer.enabled) {
-      console.log('Enabling EQ path');
+    if (this.playerStore && this.playerStore.equalizer.enabled) {
+      console.log('Activando ecualizador');
       this._connectEqPath();
     } else {
-      console.log('Bypassing EQ path');
+      console.log('Desactivando ecualizador');
       this._bypassEqPath();
     }
   }
   
   /**
-   * Inserts the EQ filter chain into the audio path: boostNode -> EQ -> gainNode.
+   * Inserta la cadena de filtros del ecualizador en el camino de audio: boostNode -> EQ -> gainNode.
    */
   _connectEqPath() {
     if (!this.initialized || !this.equalizerNodes.length) {
-      console.warn('Cannot connect EQ path: Not initialized or no EQ nodes');
+      console.warn('No se puede conectar ecualizador: No inicializado o sin nodos de ecualización');
       return;
     }
 
     try {
-      this.boostNode.disconnect(); // Disconnect boostNode from gainNode (bypass)
+      this.boostNode.disconnect(); // Desconectar boostNode de gainNode (bypass)
 
       let currentNode = this.boostNode;
       this.equalizerNodes.forEach((filterNode, index) => {
         currentNode.connect(filterNode);
-        console.log(`Connected EQ node ${index} with frequency: ${filterNode.frequency.value}`);
+        console.log(`Conectado nodo EQ ${index} con frecuencia: ${filterNode.frequency.value}`);
         currentNode = filterNode;
       });
-      currentNode.connect(this.gainNode); // Connect end of EQ chain to gainNode
-      console.log('EQ path connected successfully');
+      currentNode.connect(this.gainNode); // Conectar final de cadena EQ a gainNode
+      console.log('Conexión de ecualizador exitosa');
     } catch (error) {
-      console.error('Error connecting EQ path:', error);
+      console.error('Error conectando ecualizador:', error);
     }
   }
   
   /**
-   * Bypasses the EQ filter chain: boostNode -> gainNode.
+   * Bypassa la cadena de filtros: boostNode -> gainNode.
    */
   _bypassEqPath() {
     if (!this.initialized) {
-      console.warn('Cannot bypass EQ path: Not initialized');
+      console.warn('No se puede bypass: No inicializado');
       return;
     }
 
     try {
-      this.boostNode.disconnect(); // Disconnect boostNode from start of EQ chain (if connected)
+      this.boostNode.disconnect(); // Desconectar boostNode del inicio de cadena EQ (si conectado)
 
-      // Disconnect each EQ node to be safe, though disconnecting boostNode should suffice for its output
+      // Desconectar cada nodo EQ para seguridad
       this.equalizerNodes.forEach((filterNode, index) => {
         filterNode.disconnect();
-        console.log(`Disconnected EQ node ${index} with frequency: ${filterNode.frequency.value}`);
       });
 
-      this.boostNode.connect(this.gainNode); // Reconnect boostNode directly to gainNode
-      console.log('EQ path bypassed successfully');
+      this.boostNode.connect(this.gainNode); // Reconectar boostNode directo a gainNode
+      console.log('Bypass de ecualizador exitoso');
     } catch (error) {
-      console.error('Error bypassing EQ path:', error);
+      console.error('Error en bypass del ecualizador:', error);
     }
   }
   
   /**
-   * Updates a specific equalizer band and logs the change for debugging.
+   * Actualiza una banda específica del ecualizador y registra el cambio para depuración.
    */
   updateEqualizerBand(index, gain) {
     if (!this.initialized || index < 0 || index >= this.equalizerNodes.length) {
-      console.warn(`Invalid equalizer band index: ${index}`);
+      console.warn(`Índice inválido para banda de ecualización: ${index}`);
       return;
     }
 
     this.equalizerNodes[index].gain.value = gain;
-    console.log(`Equalizer band ${index} updated with gain: ${gain}`);
+    console.log(`Banda de ecualización ${index} actualizada con ganancia: ${gain}`);
 
-    // Ensure the EQ chain is active and reconnected to apply changes
-    console.log('Reconnecting EQ path to apply changes');
+    // Asegurar que la cadena de ecualización esté activa y reconectada para aplicar cambios
+    console.log('Reconectando ecualizador para aplicar cambios');
     this._connectEqPath();
   }
   
@@ -178,32 +209,39 @@ class AudioManager {
     
     // Actualización de tiempo
     this.audioElement.addEventListener('timeupdate', () => {
-      playerStore.setCurrentTime(this.audioElement.currentTime);
+      if (this.playerStore) {
+        this.playerStore.updateCurrentTime(this.audioElement.currentTime);
+      }
     });
     
     // Duración disponible
     this.audioElement.addEventListener('loadedmetadata', () => {
-      playerStore.setDuration(this.audioElement.duration);
+      if (this.playerStore) {
+        this.playerStore.updateDuration(this.audioElement.duration);
+      }
     });
     
     // Fin de reproducción
-    this.audioElement.addEventListener('ended', async () => {
-      // Intentar siguiente pista según repeat/shuffle
-      const nextTrack = playerStore.nextTrack();
-      if (nextTrack && nextTrack.fileHandle) {
-        try {
-          await this.playFile(nextTrack.fileHandle);
-        } catch (e) {
-          console.error('Error reproduciendo siguiente pista:', e);
+    this.audioElement.addEventListener('ended', () => {
+      if (this.playerStore) {
+        // Reproducir siguiente pista según estado del player
+        const nextTrack = this.playerStore.playNext();
+        if (nextTrack && nextTrack.fileHandle) {
+          this.playFile(nextTrack.fileHandle)
+            .catch(error => console.error('Error reproduciendo siguiente pista:', error));
+        } else {
+          this.playerStore.setPlayingState(false);
         }
-      } else {
-        playerStore.pause();
       }
     });
     
     // Error de reproducción
     this.audioElement.addEventListener('error', (e) => {
       console.error('Error en reproducción de audio:', e);
+      if (this.playerStore) {
+        this.playerStore.setPlayingState(false);
+        this.playerStore.error = 'Error al reproducir el audio';
+      }
     });
   }
   
@@ -221,11 +259,21 @@ class AudioManager {
       });
       
       navigator.mediaSession.setActionHandler('previoustrack', () => {
-        // Implementación futura: pista anterior
+        if (this.playerStore) {
+          const prevTrack = this.playerStore.playPrevious();
+          if (prevTrack && prevTrack.fileHandle) {
+            this.playFile(prevTrack.fileHandle);
+          }
+        }
       });
       
       navigator.mediaSession.setActionHandler('nexttrack', () => {
-        // Implementación futura: siguiente pista
+        if (this.playerStore) {
+          const nextTrack = this.playerStore.playNext();
+          if (nextTrack && nextTrack.fileHandle) {
+            this.playFile(nextTrack.fileHandle);
+          }
+        }
       });
       
       navigator.mediaSession.setActionHandler('seekto', (details) => {
@@ -258,12 +306,25 @@ class AudioManager {
    * Reproduce un archivo a partir de su FileSystemFileHandle
    */
   async playFile(fileHandle) {
-    if (!fileHandle) return Promise.reject('No se proporcionó un manejador de archivo');
+    if (!fileHandle) {
+      console.error('No se proporcionó un manejador de archivo');
+      return Promise.reject('No se proporcionó un manejador de archivo');
+    }
     
     try {
       // Inicializamos si es necesario
       if (!this.initialized) {
         this.initialize();
+      }
+      
+      // Verificamos y solicitamos permisos si es necesario
+      const permission = await fileHandle.queryPermission({ mode: 'read' });
+      if (permission !== 'granted') {
+        console.log('Solicitando permiso para archivo...');
+        const requestPermission = await fileHandle.requestPermission({ mode: 'read' });
+        if (requestPermission !== 'granted') {
+          throw new Error('Permiso denegado para acceder al archivo');
+        }
       }
       
       // Obtenemos el archivo
@@ -272,12 +333,33 @@ class AudioManager {
       // Creamos una URL para el archivo
       const fileUrl = URL.createObjectURL(file);
       
+      // Limpiamos cualquier URL anterior para evitar fugas de memoria
+      if (this.audioElement.src) {
+        URL.revokeObjectURL(this.audioElement.src);
+      }
+      
       // Asignamos la URL al elemento de audio
       this.audioElement.src = fileUrl;
       
       // Reproducimos
-      return this.play();
+      console.log('Reproduciendo archivo:', file.name);
+      const playPromise = this.play();
+      
+      // Actualizar el título de la página con la info de la pista
+      if (this.playerStore && this.playerStore.currentTrack) {
+        const track = this.playerStore.currentTrack;
+        document.title = `${track.name || 'Desconocido'} - ${track.artist || 'Desconocido'} | PWA Music Player`;
+      }
+      
+      return playPromise;
     } catch (error) {
+      console.error('Error al reproducir archivo:', error);
+      
+      if (this.playerStore) {
+        this.playerStore.error = `Error al reproducir: ${error.message}`;
+        this.playerStore.setPlayingState(false);
+      }
+      
       return Promise.reject(`Error al reproducir archivo: ${error.message}`);
     }
   }
@@ -302,12 +384,17 @@ class AudioManager {
       if (playPromise !== undefined) {
         playPromise
           .then(() => {
-            playerStore.play();
-            this.updateMediaSessionMetadata(playerStore.currentTrack);
+            if (this.playerStore) {
+              this.playerStore.setPlayingState(true);
+              this.updateMediaSessionMetadata(this.playerStore.currentTrack);
+            }
           })
           .catch(error => {
             console.error('Error al reproducir:', error);
-            playerStore.pause();
+            if (this.playerStore) {
+              this.playerStore.setPlayingState(false);
+              this.playerStore.error = `Error al reproducir: ${error.message}`;
+            }
           });
       }
       
@@ -323,7 +410,9 @@ class AudioManager {
   pause() {
     if (this.audioElement) {
       this.audioElement.pause();
-      playerStore.pause();
+      if (this.playerStore) {
+        this.playerStore.setPlayingState(false);
+      }
     }
   }
   
@@ -358,7 +447,9 @@ class AudioManager {
     }
     
     // Actualizamos el store
-    playerStore.setVolume(safeVolume);
+    if (this.playerStore) {
+      this.playerStore.setVolume(safeVolume);
+    }
   }
   
   /**
@@ -413,6 +504,10 @@ class AudioManager {
     if (this.audioElement) {
       this.audioElement.pause();
       this.audioElement.src = '';
+      
+      if (this.audioElement.src) {
+        URL.revokeObjectURL(this.audioElement.src);
+      }
     }
     
     if (this.audioContext) {

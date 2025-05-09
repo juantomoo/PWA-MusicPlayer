@@ -121,7 +121,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
-import { usePlayerStore } from '../utils/playerStore';
+import { usePlayerStore } from '../store/playerStore';
 
 const store = usePlayerStore();
 const lyrics = ref('');

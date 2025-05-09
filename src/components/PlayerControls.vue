@@ -17,11 +17,14 @@
 
     <!-- Información de la pista actual -->
     <div class="track-info-slider">
-      <div class="track-info-content">
+      <div class="track-info-content" v-if="currentTrack">
         <span class="track-title">{{ currentTrack?.name || 'Sin reproducción' }}</span>
         <span class="track-artist"> - {{ currentTrack?.artist || 'Artista desconocido' }}</span>
         <span class="track-album"> - {{ currentTrack?.album || 'Álbum desconocido' }}</span>
         <span class="track-year" v-if="currentTrack?.year"> - {{ currentTrack.year }}</span>
+      </div>
+      <div class="track-info-content" v-else>
+        <span class="track-title">Selecciona una canción para reproducir</span>
       </div>
     </div>
 
@@ -38,13 +41,10 @@
         </button>
       </div>
       <div class="extra-controls">
-        <button @click="toggleRepeat" class="player-btn-small" :class="{ 'active': repeatMode !== 'off' }">
-          <span v-if="repeatMode === 'one'">🔂</span>
-          <span v-else>🔁</span>
+        <button @click="toggleRepeat" class="player-btn-small" :class="{ 'active': isRepeat }">
+          <span>🔁</span>
         </button>
-        <!-- Texto de modo de repetición -->
-        <span v-if="repeatLabel" class="repeat-label">{{ repeatLabel }}</span>
-        <button @click="toggleShuffle" class="player-btn-small" :class="{ 'active': shuffleMode }">
+        <button @click="toggleShuffle" class="player-btn-small" :class="{ 'active': isShuffle }">
           <span>🔀</span>
         </button>
         <VolumeControl :model-value="volume" @update:modelValue="onVolumeChange" />
@@ -54,107 +54,65 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onBeforeUnmount } from 'vue';
-import playerStore from '../store/playerStore';
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
+import { usePlayerStore } from '../store/playerStore';
 import audioManager from '../utils/audioManager';
 import VolumeControl from './VolumeControl.vue';
 
-const playlist = computed(() => playerStore.playlist);
+const playerStore = usePlayerStore();
+
+// Estado basado en Pinia
 const currentTrack = computed(() => playerStore.currentTrack);
 const isPlaying = computed(() => playerStore.isPlaying);
-const repeatMode = computed(() => playerStore.repeat);
-const shuffleMode = computed(() => playerStore.shuffle);
-const currentTime = computed(() => playerStore.currentTime);
-const duration = computed(() => playerStore.duration);
+const isShuffle = computed(() => playerStore.isShuffle);
+const isRepeat = computed(() => playerStore.isRepeat);
 const volume = computed(() => playerStore.volume);
 
-// Etiqueta para modo de repetición
-const repeatLabel = computed(() => {
-  if (repeatMode.value === 'one') return '1';
-  if (repeatMode.value === 'all') return 'All';
-  return '';
-});
+// Estado local
+const currentTime = ref(0);
+const duration = ref(0);
 
-function playTrack(track) {
-  playerStore.setTrack(track);
-  if (track && track.fileHandle) {
-    audioManager.playFile(track.fileHandle);
-  }
-}
-
-function togglePlay() {
-  if (!currentTrack.value) return;
-  if (isPlaying.value) {
-    audioManager.pause();
-  } else {
-    audioManager.playFile(currentTrack.value.fileHandle);
-  }
-}
-
-async function handlePrev() {
-  const track = playerStore.prevTrack();
-  if (track && track.fileHandle) {
-    try {
-      await audioManager.playFile(track.fileHandle);
-    } catch (e) {
-      console.error('Error al reproducir pista anterior:', e);
-    }
-  }
-}
-
-async function handleNext() {
-  const track = playerStore.nextTrack();
-  if (track && track.fileHandle) {
-    try {
-      await audioManager.playFile(track.fileHandle);
-    } catch (e) {
-      console.error('Error al reproducir siguiente pista:', e);
-    }
-  }
-}
-
-function toggleRepeat() {
-  playerStore.toggleRepeat();
-}
-
-function toggleShuffle() {
-  playerStore.toggleShuffle();
-}
-
-function onSeek(event) {
-  const newTime = parseFloat(event.target.value);
-  audioManager.setCurrentTime(newTime);
-}
-
-function onVolumeChange(newVolume) {
-  audioManager.setVolume(newVolume);
-}
-
-function formatTime(sec) {
-  if (!sec || isNaN(sec)) return '0:00';
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60).toString().padStart(2, '0');
-  return `${m}:${s}`;
-}
-
+// Actualizar el tiempo actual y duración desde el audioManager
 onMounted(() => {
-  if ('mediaSession' in navigator) {
-    navigator.mediaSession.setActionHandler('play', () => {
-      togglePlay();
-    });
-    navigator.mediaSession.setActionHandler('pause', () => {
-      togglePlay();
-    });
-    navigator.mediaSession.setActionHandler('previoustrack', () => {
-      handlePrev();
-    });
-    navigator.mediaSession.setActionHandler('nexttrack', () => {
-      handleNext();
-    });
+  // Inicializar AudioManager si no está inicializado
+  if (!audioManager.initialized) {
+    audioManager.initialize();
   }
+  
+  // Configurar el audio element para escuchar eventos
+  const audioElement = document.getElementById('audio-player');
+  if (audioElement) {
+    // Actualizar tiempo
+    audioElement.addEventListener('timeupdate', () => {
+      currentTime.value = audioElement.currentTime;
+    });
+    
+    // Actualizar duración cuando se carga
+    audioElement.addEventListener('loadedmetadata', () => {
+      duration.value = audioElement.duration;
+    });
+    
+    // Manejar fin de reproducción
+    audioElement.addEventListener('ended', handleTrackEnd);
+    
+    // Sincronizar volumen con el store
+    setVolume(playerStore.volume);
+  }
+  
+  // Configurar MediaSession API
+  setupMediaSessionHandlers();
 });
 
+// Limpiar event listeners
 onBeforeUnmount(() => {
+  const audioElement = document.getElementById('audio-player');
+  if (audioElement) {
+    audioElement.removeEventListener('timeupdate', () => {});
+    audioElement.removeEventListener('loadedmetadata', () => {});
+    audioElement.removeEventListener('ended', handleTrackEnd);
+  }
+  
+  // Remover handlers de Media Session
   if ('mediaSession' in navigator) {
     navigator.mediaSession.setActionHandler('play', null);
     navigator.mediaSession.setActionHandler('pause', null);
@@ -162,6 +120,118 @@ onBeforeUnmount(() => {
     navigator.mediaSession.setActionHandler('nexttrack', null);
   }
 });
+
+// Formatear tiempo en formato mm:ss
+function formatTime(sec) {
+  if (!sec || isNaN(sec)) return '0:00';
+  const minutes = Math.floor(sec / 60);
+  const seconds = Math.floor(sec % 60).toString().padStart(2, '0');
+  return `${minutes}:${seconds}`;
+}
+
+// Controlar la reproducción
+function togglePlay() {
+  if (!currentTrack.value) return;
+  
+  if (isPlaying.value) {
+    audioManager.pause();
+    playerStore.setPlayingState(false);
+  } else {
+    if (currentTrack.value.fileHandle) {
+      audioManager.playFile(currentTrack.value.fileHandle)
+        .then(() => playerStore.setPlayingState(true))
+        .catch(error => console.error('Error reproduciendo:', error));
+    }
+  }
+}
+
+// Ir a pista anterior
+async function handlePrev() {
+  const track = playerStore.playPrevious();
+  if (track && track.fileHandle) {
+    try {
+      await audioManager.playFile(track.fileHandle);
+      playerStore.setPlayingState(true);
+    } catch (error) {
+      console.error('Error reproduciendo pista anterior:', error);
+    }
+  }
+}
+
+// Ir a siguiente pista
+async function handleNext() {
+  const track = playerStore.playNext();
+  if (track && track.fileHandle) {
+    try {
+      await audioManager.playFile(track.fileHandle);
+      playerStore.setPlayingState(true);
+    } catch (error) {
+      console.error('Error reproduciendo siguiente pista:', error);
+    }
+  }
+}
+
+// Manejar fin de pista
+function handleTrackEnd() {
+  if (isRepeat.value) {
+    // Si está en modo repetición, vuelve a reproducir la pista actual
+    if (currentTrack.value && currentTrack.value.fileHandle) {
+      audioManager.playFile(currentTrack.value.fileHandle)
+        .catch(error => console.error('Error en repetición:', error));
+    }
+  } else {
+    // Si no, reproduce la siguiente
+    handleNext();
+  }
+}
+
+// Cambiar posición de reproducción
+function onSeek(event) {
+  const newTime = parseFloat(event.target.value);
+  audioManager.setCurrentTime(newTime);
+}
+
+// Cambiar volumen
+function onVolumeChange(newVolume) {
+  setVolume(newVolume);
+}
+
+function setVolume(value) {
+  audioManager.setVolume(value);
+  playerStore.setVolume(value);
+}
+
+// Alternar modo repetición
+function toggleRepeat() {
+  playerStore.toggleRepeat();
+}
+
+// Alternar modo aleatorio
+function toggleShuffle() {
+  playerStore.toggleShuffle();
+}
+
+// Configurar MediaSession API
+function setupMediaSessionHandlers() {
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.setActionHandler('play', togglePlay);
+    navigator.mediaSession.setActionHandler('pause', togglePlay);
+    navigator.mediaSession.setActionHandler('previoustrack', handlePrev);
+    navigator.mediaSession.setActionHandler('nexttrack', handleNext);
+    
+    // Actualizar metadata cuando cambie la pista
+    watch(currentTrack, (newTrack) => {
+      if (newTrack) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: newTrack.name || 'Desconocido',
+          artist: newTrack.artist || 'Artista desconocido',
+          album: newTrack.album || 'Álbum desconocido',
+          artwork: newTrack.coverUrl ? [{ src: newTrack.coverUrl }] : []
+        });
+      }
+    });
+  }
+}
 </script>
 
 <style scoped>
@@ -178,10 +248,11 @@ onBeforeUnmount(() => {
 }
 .progress-bar {
   flex: 1;
-  height: 4px;
+  height: 6px;
   background: var(--color-vaporwave5);
-  border-radius: 2px;
-  accent-color: var(--color-vaporwave4);
+  border-radius: 3px;
+  accent-color: var(--color-vaporwave1);
+  cursor: pointer;
 }
 .time-label {
   font-size: 0.9em;
@@ -193,10 +264,14 @@ onBeforeUnmount(() => {
   overflow: hidden;
   white-space: nowrap;
   margin-bottom: 8px;
+  background-color: rgba(0, 0, 0, 0.2);
+  padding: 5px 10px;
+  border-radius: 4px;
+  height: 24px;
 }
 .track-info-content {
   display: inline-block;
-  animation: slide 10s linear infinite;
+  animation: slide 15s linear infinite;
 }
 .track-title, .track-artist, .track-album, .track-year {
   font-size: 0.9em;
@@ -204,6 +279,8 @@ onBeforeUnmount(() => {
 }
 @keyframes slide {
   0% { transform: translateX(100%); }
+  10% { transform: translateX(0%); }
+  90% { transform: translateX(0%); }
   100% { transform: translateX(-100%); }
 }
 .controls-row {
@@ -223,50 +300,55 @@ onBeforeUnmount(() => {
   gap: 0.5rem;
 }
 .player-btn {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--color-vaporwave4);
   background-color: var(--color-vaporwave3);
   border: 1px solid var(--color-vaporwave5);
+  border-radius: 20px;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 .player-btn-large {
-  width: 45px;
-  height: 45px;
+  width: 50px;
+  height: 50px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  background-color: var(--color-vaporwave5);
+  background-color: var(--color-vaporwave1);
   border: 1px solid var(--color-vaporwave1);
+  border-radius: 25px;
   cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 1.1em;
 }
 .player-btn-small {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--color-vaporwave1);
   background-color: transparent;
   border: 1px solid var(--color-vaporwave5);
+  border-radius: 16px;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 .player-btn-small.active {
-  color: var(--color-vaporwave2);
-  background-color: var(--color-vaporwave3);
+  color: white;
+  background-color: var(--color-vaporwave1);
 }
 .player-btn:hover, 
-.player-btn-large:hover, 
-.player-btn-small:hover {
-  opacity: 0.8;
+.player-btn-large:hover {
+  transform: scale(1.05);
+  opacity: 0.9;
 }
-.repeat-label {
-  margin-left: 4px;
-  font-size: 0.8em;
-  color: var(--color-vaporwave1);
+.player-btn-small:hover {
+  background-color: rgba(255, 255, 255, 0.1);
 }
 </style>

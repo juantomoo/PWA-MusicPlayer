@@ -34,13 +34,14 @@
 
 <script>
 import { computed, ref, onMounted } from 'vue';
-import playerStore from '../store/playerStore';
+import { usePlayerStore } from '../store/playerStore';
 import audioManager from '../utils/audioManager';
 
 export default {
   name: 'EqualizerView',
   setup() {
-    const eqBands = computed(() => playerStore.state.equalizer.bands);
+    const playerStore = usePlayerStore();
+    const eqBands = computed(() => playerStore.equalizer.bands);
     const presets = [
       { name: 'Plano', values: [0, 0, 0, 0, 0] },
       { name: 'Rock',  values: [4, 2, 0, -1, 3] },
@@ -49,11 +50,8 @@ export default {
       { name: 'Classical', values: [2, 0, 0, 0, 2] }
     ];
     const boostGain = ref(1);
-    const normalizerOn = ref(false);
-
-    function onBandChange(idx, gain) {
+    const normalizerOn = ref(false);    function onBandChange(idx, gain) {
       playerStore.setEqualizerBand(idx, gain);
-      audioManager.updateEqualizerBand(idx, gain);
     }
     function applyPreset(preset) {
       preset.values.forEach((v, i) => onBandChange(i, v));
