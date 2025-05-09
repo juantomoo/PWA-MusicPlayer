@@ -51,8 +51,9 @@
 
 <script setup>
 import { computed } from 'vue';
-import { usePlayerStore } from '../utils/playerStore';
+import playerStore from '../store/playerStore';
 import audioManager from '../utils/audioManager';
+import favoritesManager from '../utils/favoritesManager';
 
 const props = defineProps({
   tracks: {
@@ -67,8 +68,8 @@ const props = defineProps({
 
 const emit = defineEmits(['favorite', 'remove']);
 
-const store = usePlayerStore();
-const isPlaying = computed(() => store.state.isPlaying);
+const store = playerStore;
+const isPlaying = computed(() => store.isPlaying);
 
 // Comprobar si una pista es la actual
 function isCurrentTrack(track) {
@@ -99,9 +100,9 @@ async function selectTrack(track) {
 }
 
 // Marcar/desmarcar favorito
-function toggleFavorite(track) {
-  const updatedTrack = { ...track, favorite: !track.favorite };
-  emit('favorite', updatedTrack);
+async function toggleFavorite(track) {
+  const updated = await favoritesManager.toggleFavorite(track);
+  emit('favorite', { ...track, favorite: updated });
 }
 
 // Eliminar de la lista

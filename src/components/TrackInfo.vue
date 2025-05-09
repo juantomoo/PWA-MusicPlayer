@@ -89,7 +89,3 @@ watch(currentTrack, (track) => {
   coverUrl.value = extractCoverFromTrack(track);
 }, { immediate: true });
 </script>
-
-<style scoped>
-/* Todos los estilos se manejan con Tailwind */
-</style>

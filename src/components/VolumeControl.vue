@@ -25,7 +25,6 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue';
-import { usePlayerStore } from '../utils/playerStore';
 
 const props = defineProps({
   modelValue: {

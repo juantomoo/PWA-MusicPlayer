@@ -1,21 +1,20 @@
 import { createApp } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 import './style.css'
-import './assets/css/tailwind-fixes.css' // Importamos las correcciones CSS
 import App from './App.vue'
 
 // Importar vistas para el router
 import NowPlayingView from './views/NowPlayingView.vue'
 import EqualizerView from './views/EqualizerView.vue'
 import PlaylistsView from './views/PlaylistsView.vue'
-import LetrasView from './views/LetrasView.vue'
+import LyricsView from './views/LyricsView.vue'
 
 // Configuración de rutas
 const routes = [
   { path: '/', component: NowPlayingView },
   { path: '/equalizer', component: EqualizerView },
   { path: '/playlists', component: PlaylistsView },
-  { path: '/lyrics', component: LetrasView }
+  { path: '/lyrics', component: LyricsView }
 ]
 
 // Crear instancia de router

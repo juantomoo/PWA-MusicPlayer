@@ -1,58 +1,84 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Base CSS Variables and Styles */
 
 :root {
-  --color-vaporwave1: #48CBA9;
-  --color-vaporwave2: #E5156D;
-  --color-vaporwave3: #552A93;
-  --color-vaporwave4: #FDC47F;
-  --color-vaporwave5: #3D758C;
-  --color-vaporwave-bg: #181825;
-  --color-vaporwave-text: #fff;
+  /* Color Palette - Vaporwave Theme */
+  --color-vaporwave1: #48CBA9; /* turquesa - elementos primarios */
+  --color-vaporwave2: #E5156D; /* rosa - acentos y elementos activos */
+  --color-vaporwave3: #552A93; /* morado - fondos */
+  --color-vaporwave4: #FDC47F; /* naranja - elementos destacados */
+  --color-vaporwave5: #3D758C; /* azul grisáceo - elementos UI secundarios */
+  
+  /* Additional UI Colors */
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: rgba(255, 255, 255, 0.7);
+  --color-bg-dark: #1A1225;
+  --color-bg-light: #763FA9;
+  
+  /* Spacing and Sizing */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  
+  /* Font configurations */
   font-family: 'Inter', 'Helvetica', system-ui, -apple-system, sans-serif;
+  font-size: 16px;
   line-height: 1.5;
   font-weight: 400;
-  color: var(--color-vaporwave-text);
+  
+  /* Base colors */
+  color: var(--color-text-primary);
   background-color: var(--color-vaporwave3);
 }
 
-/* Estilos base para limpiar defaults de navegador */
-html, body {
+/* Reset and Base Styles */
+*, *::before, *::after {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
+}
+
+html, body {
   height: 100%;
   width: 100%;
   overflow: hidden;
 }
 
 body {
-  background-color: var(--color-vaporwave3);
+  background-color: var(--color-bg-dark);
 }
 
-#app {
-  width: 100%;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+/* Common Elements */
+button {
+  background-color: var(--color-vaporwave5);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: var(--space-sm) var(--space-md);
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
 }
 
-/* Utilidades específicas para colores vaporwave */
-.bg-vaporwave1 { background-color: var(--color-vaporwave1) !important; }
-.bg-vaporwave2 { background-color: var(--color-vaporwave2) !important; }
-.bg-vaporwave3 { background-color: var(--color-vaporwave3) !important; }
-.bg-vaporwave4 { background-color: var(--color-vaporwave4) !important; }
-.bg-vaporwave5 { background-color: var(--color-vaporwave5) !important; }
-.text-vaporwave1 { color: var(--color-vaporwave1) !important; }
-.text-vaporwave2 { color: var(--color-vaporwave2) !important; }
-.text-vaporwave3 { color: var(--color-vaporwave3) !important; }
-.text-vaporwave4 { color: var(--color-vaporwave4) !important; }
-.text-vaporwave5 { color: var(--color-vaporwave5) !important; }
+button:hover {
+  background-color: var(--color-vaporwave1);
+}
 
-/* Estilos para los scrollbars */
+button:active {
+  transform: scale(0.98);
+}
+
+input, select {
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--color-vaporwave5);
+  color: var(--color-text-primary);
+  padding: var(--space-sm);
+}
+
+/* Scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -67,151 +93,197 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background-color: var(--color-vaporwave2);
 }
-/* Elementos del encabezado */
-.logo-head {
-  width: 50px;
-  height: 50px;
+
+/* Pestañas */
+
+
+.tabs-nav {
+  width: 100%;
+}
+.tabs-flex {
+  display: flex;
+  text-align: center;
+}
+.tab-link {
+  display: block;
+  padding: 0.5rem 0.25rem;
+  color: var(--color-vaporwave4);
+  text-decoration: none;
+  transition: background-color 0.2s, color 0.2s;
+  user-select: none;
+  flex: 1;
+}
+.tab-link:hover {
+  background-color: var(--color-vaporwave5);
+}
+.active-tab {
+  background-color: var(--color-vaporwave5);
+  color: white;
+  position: relative;
+}
+.active-tab::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 25%;
+  width: 50%;
+  height: 3px;
+  background-color: var(--color-vaporwave2);
 }
 
-/* Estilos de los covers */
-list-cover {
-  width: 50px;
-  height: 50px;
+/* Progreso de carga de archivos de música */
+.loading-progress-panel {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 200px;
+  height: 200px;
+  background-color: var(--color-vaporwave3, #552A93);
+  border: 3px solid var(--color-vaporwave2, #E5156D);
+  border-radius: 8px;
+  z-index: 999;
+  box-shadow: 0 0 25px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  pointer-events: none;
 }
-.object-cover {
-  height: 50px;
-  max-height: 50px;
-  width: 50px;
+.loading-progress-container {
+  padding: 15px;
+  text-align: center;
 }
-.portada {
-  width: 150px;
-  height: 150px;
+.loading-progress-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.loading-text {
+  color: white;
+  font-weight: 500;
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+.loading-percentage {
+  color: var(--color-vaporwave4, #FDC47F);
+  font-weight: 700;
+  font-size: 40px;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+.loading-count {
+  color: white;
+  font-size: 14px;
+  margin-bottom: 15px;
+}
+.progress-bar-container {
+  width: 100%;
+  height: 8px;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.progress-bar {
+  height: 100%;
+  background-color: var(--color-vaporwave4, #FDC47F);
+  transition: width 0.3s ease;
+  animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+  0% { opacity: 0.7; }
+  50% { opacity: 1; }
+  100% { opacity: 0.7; }
 }
 
-/* Elementos del footer */
-
-.footer-info {
+/* Controles del reproductor de música */
+.contenedor-controles {
+  justify-items: center;
+}
+.player-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  color: var(--color-vaporwave4);
   background-color: var(--color-vaporwave3);
-  color: var(--color-vaporwave1);
-  width: 90%;
-  padding: 10px;
-  display: grid;
-  justify-self: center;
-  align-items: center;
-}
-.info-pista {
-  justify-content: center;
-}
-
-.cinta-pista {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: center;
-}
-.controles {
-  justify-self: center;
-}
-.desarrollador {
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
-  font-size: 0.6rem;
-}
-
-/* Estilos para los sliders */
-input[type=range] {
-  -webkit-appearance: none;
-  appearance: none;
-  background: transparent;
+  border: 1px solid var(--color-vaporwave5);
   cursor: pointer;
 }
 
-input[type=range]::-webkit-slider-runnable-track {
-  background: var(--color-vaporwave5);
-  height: 4px;
+.player-btn-large {
+  width: 55px;
+  height: 55px;
+  border-radius: 50%;
+  color: white;
+  background-color: var(--color-vaporwave5);
+  border: 2px solid var(--color-vaporwave1);
+  cursor: pointer;
 }
 
-input[type=range]::-moz-range-track {
-  background: var(--color-vaporwave5);
-  height: 4px;
+.player-btn-small {
+  width: 30px;
+  height: 30px;
+  color: var(--color-vaporwave1);
+  background-color: transparent;
+  border: 1px solid var(--color-vaporwave5);
+  cursor: pointer;
 }
 
-input[type=range]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  margin-top: -6px;
-  background-color: var(--color-vaporwave4);
-  height: 16px;
-  width: 16px;
-  border: none;
-  border-radius: 0;
+.player-btn-small.active {
+  color: var(--color-vaporwave2);
+  background-color: var(--color-vaporwave3);
 }
 
-input[type=range]::-moz-range-thumb {
-  border: none;
-  border-radius: 0;
-  background-color: var(--color-vaporwave4);
-  height: 16px;
-  width: 16px;
+.player-btn:hover, 
+.player-btn-large:hover, 
+.player-btn-small:hover {
+  opacity: 0.8;
 }
 
-/* Focus para slider */
-input[type=range]:focus {
-  outline: none;
+/* Sliding track info styles */
+.track-info-slider {
+  width: 70%;
+  overflow: hidden;
+  white-space: nowrap;
+  position: relative;
+  margin: 0 auto;
+  text-align: center;
 }
 
-input[type=range]:focus::-webkit-slider-thumb {
-  outline: 2px solid var(--color-vaporwave2);
-  outline-offset: 0.1rem;
+.track-info-content {
+  display: inline-block;
+  animation: slide 10s linear infinite alternate;
 }
 
-input[type=range]:focus::-moz-range-thumb {
-  outline: 2px solid var(--color-vaporwave2);
-  outline-offset: 0.1rem;
+.track-title {
+  font-weight: bold;
+  color: var(--color-vaporwave3);
 }
 
-/* Personalización del slider vertical */
-.appearance-slider-vertical {
-  writing-mode: vertical-lr;
-  direction: rtl;
-  width: 32px;
+.track-artist {
+  font-style: italic;
+  font-weight: 100;
+  color: var(--color-vaporwave5);
 }
 
-/* Corrección para asegurar que las clases flex de Tailwind funcionen */
-.flex {
-  display: flex !important;
+.track-album {
+  font-weight: normal;
+  color: var(--color-vaporwave4);
 }
 
-.grid {
-  display: grid !important;
+.track-year {
+  font-style: oblique;
+  color: var(--color-vaporwave2);
 }
 
-.block {
-  display: block !important;
-}
-
-.hidden {
-  display: none !important;
-}
-
-.inline-flex {
-  display: inline-flex !important;
-}
-
-.flex-col {
-  flex-direction: column !important;
-}
-
-.items-center {
-  align-items: center !important;
-}
-
-.justify-between {
-  justify-content: space-between !important;
-}
-
-.justify-center {
-  justify-content: center !important;
+@keyframes slide {
+  0% {
+    transform: translateX(100%);
+  }
+  50% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0);
+  }
 }

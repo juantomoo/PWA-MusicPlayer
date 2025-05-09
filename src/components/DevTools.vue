@@ -1,23 +1,23 @@
 <template>
-  <div class="devtools p-4 bg-gray-800 text-white font-mono text-xs fixed bottom-0 left-0 right-0 max-h-60 overflow-y-auto z-50 shadow-lg">
-    <div class="flex justify-between items-center mb-2">
-      <h2 class="text-vaporwave4 font-bold">DevTools</h2>
-      <div class="flex gap-2">
-        <button @click="showPwaStatus = !showPwaStatus" class="px-2 py-0.5 bg-vaporwave3 text-white rounded hover:bg-vaporwave2">
+  <div class="devtools">
+    <div class="devtools-header">
+      <h2 class="devtools-title">DevTools</h2>
+      <div class="devtools-buttons">
+        <button @click="showPwaStatus = !showPwaStatus">
           PWA: {{ pwaStatus }}
         </button>
-        <button @click="showInfo = !showInfo" class="px-2 py-0.5 bg-vaporwave5 text-white rounded hover:bg-vaporwave1">
+        <button @click="showInfo = !showInfo">
           {{ showInfo ? 'Ocultar' : 'Mostrar' }} Info
         </button>
-        <button @click="showPlayer = !showPlayer" class="px-2 py-0.5 bg-vaporwave2 text-white rounded hover:bg-vaporwave4">
+        <button @click="showPlayer = !showPlayer">
           {{ showPlayer ? 'Ocultar' : 'Mostrar' }} Player
         </button>
       </div>
     </div>
     
-    <div v-if="showPwaStatus" class="mb-2 p-2 bg-gray-700 rounded">
-      <h3 class="font-bold text-vaporwave1">Estado PWA</h3>
-      <div class="grid grid-cols-2 gap-2">
+    <div v-if="showPwaStatus" class="devtools-section">
+      <h3 class="devtools-section-title">Estado PWA</h3>
+      <div class="devtools-grid">
         <div>Instalada: {{ pwaInstalled ? 'Sí' : 'No' }}</div>
         <div>SW Activo: {{ swActive ? 'Sí' : 'No' }}</div>
         <div>Online: {{ online ? 'Sí' : 'No' }}</div>
@@ -25,10 +25,10 @@
       </div>
     </div>
     
-    <div v-if="showInfo" class="mb-2 p-2 bg-gray-700 rounded">
-      <h3 class="font-bold text-vaporwave4">Información</h3>
-      <div class="overflow-x-auto">
-        <table class="w-full text-left">
+    <div v-if="showInfo" class="devtools-section">
+      <h3 class="devtools-section-title">Información</h3>
+      <div class="devtools-table-wrapper">
+        <table class="devtools-table">
           <thead>
             <tr>
               <th>Variable</th>
@@ -37,7 +37,7 @@
           </thead>
           <tbody>
             <tr v-for="(value, key) in envVars" :key="key">
-              <td class="pr-2">{{ key }}</td>
+              <td>{{ key }}</td>
               <td>{{ value }}</td>
             </tr>
           </tbody>
@@ -45,10 +45,10 @@
       </div>
     </div>
     
-    <div v-if="showPlayer" class="mb-2 p-2 bg-gray-700 rounded">
-      <h3 class="font-bold text-vaporwave2">Reproductor</h3>
+    <div v-if="showPlayer" class="devtools-section">
+      <h3 class="devtools-section-title">Reproductor</h3>
       <div v-if="playerStore.state.currentTrack">
-        <div class="grid grid-cols-2 gap-2">
+        <div class="devtools-grid">
           <div>Pista: {{ playerStore.state.currentTrack.title || playerStore.state.currentTrack.name }}</div>
           <div>Artista: {{ playerStore.state.currentTrack.artist || 'N/A' }}</div>
           <div>Álbum: {{ playerStore.state.currentTrack.album || 'N/A' }}</div>
@@ -182,15 +182,58 @@ function handleForceBanner() {
   border-top: 2px solid var(--color-vaporwave-list-fav, #FDC47F);
   font-size: 0.75rem;
   line-height: 1.2;
+  background: #222;
+  color: #fff;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  z-index: 50;
+  font-family: monospace;
 }
-
-table {
+.devtools-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.devtools-title {
+  color: var(--color-vaporwave4);
+  font-weight: bold;
+}
+.devtools-buttons {
+  display: flex;
+  gap: 8px;
+}
+.devtools-section {
+  margin-bottom: 8px;
+  background: #333;
+  padding: 8px;
+  border-radius: 4px;
+}
+.devtools-section-title {
+  color: var(--color-vaporwave1);
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+.devtools-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 8px;
+}
+.devtools-table-wrapper {
+  overflow-x: auto;
+}
+.devtools-table {
+  width: 100%;
   border-collapse: collapse;
 }
-
-table td, table th {
-  padding: 0.25rem 0.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+.devtools-table th, .devtools-table td {
+  padding: 2px 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  text-align: left;
 }
 
 .dev-tools {

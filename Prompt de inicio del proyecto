@@ -1,4 +1,4 @@
-# Solicitud de Generación de Proyecto: PWA Offline con Vue 3, Vite y TailwindCSS para un Reproductor de Música
+# Solicitud de Generación de Proyecto: PWA Offline con Vue 3 y Vite para un Reproductor de Música
 
 ## Descripción General:
 Genera la estructura completa y la configuración base para una aplicación web progresiva (PWA) diseñada para funcionar completamente offline. El proyecto utilizará el siguiente stack y cumplirá con los requisitos detallados a continuación.
@@ -7,7 +7,6 @@ Genera la estructura completa y la configuración base para una aplicación web 
 - **Entorno de Desarrollo**: Node.js (para la gestión de paquetes con npm/yarn y ejecución de Vite).
 - **Framework Frontend**: Vue 3 (con Composition API y `<script setup>`).
 - **Bundler**: Vite.
-- **Estilos**: TailwindCSS.
 - **Lenguaje**: JavaScript (o TypeScript si es fácil de configurar por defecto con Vite, indícalo).
 
 ## Estructura de Carpetas Requerida:
@@ -33,8 +32,6 @@ Asegúrate de crear la siguiente estructura de directorios:
 ├── index.html
 ├── LICENSE
 ├── package.json
-├── postcss.config.js   # Configuración de PostCSS (para TailwindCSS)
-├── tailwind.config.js
 └── vite.config.js
 
 ## Configuración PWA Detallada:
@@ -118,7 +115,7 @@ features:
 
 targetAudience: "{{La aplicación es para melomanos que tienen sus propios archivos de música y no quieren usar reproductores de mala calidad que recogen información del usuario y muestran comerciales, solo la clásica reproducción fluida y sin límites como lo hicieron las mejores aplicaciones en los años 90, ahora admitiendo los formatos actuales, tecnología moderna y dispositivos móviles.}}" # Para README
 
-# Dirección de arte (para Tailwind y placeholders)
+# Dirección de arte (placeholders)
 # Ejemplo: "{{Estilo visual vaporwave 80s con un enfoque fresco con botones basados en íconos y espacio limpio para visualizar las carátulas, controles de reproducción, ecualizador, potenciador de volumen y efectos, paleta de colores /* Color Theme Swatches in Hex */@amari-creative-vaporwave-1-hex: #48CBA9; @amari-creative-vaporwave-2-hex: #E5156D; @amari-creative-vaporwave-3-hex: #552A93; @amari-creative-vaporwave-4-hex: #FDC47F; @amari-creative-vaporwave-5-hex: #3D758C; /* Color Theme Swatches in RGBA */ @amari-creative-vaporwave-1-rgba: rgba(72, 202, 168, 1); @amari-creative-vaporwave-2-rgba: rgba(228, 20, 109, 1); @amari-creative-vaporwave-3-rgba: rgba(84, 42, 147, 1); @amari-creative-vaporwave-4-rgba: rgba(253, 195, 126, 1); @amari-creative-vaporwave-5-rgba: rgba(61, 117, 140, 1); primarios/secundarios/acento, tipografía sugerida, tono UX/UI}}"
 
 # Habilitar la generación de código para solicitar estos permisos
@@ -139,11 +136,6 @@ enabledPermissions:
 1.  **Comando de Inicialización Sugerido**: El comando que usarías para crear un proyecto base Vite + Vue (ej. `npm create vite@latest {{appNameSlug}} --template vue` o `vue-ts`). No se va a usar TypeScript por defecto, pero si Copilot puede configurarlo fácilmente, se sugiere como opción.
 2.  **`vite.config.js`**:
     * Configurado con `vite-plugin-pwa` según las especificaciones.
-    * Configurado para TailwindCSS (integración con PostCSS).
-3.  **`tailwind.config.js`**:
-    * Listo para producción (configuración de `content` para purgar CSS no utilizado).
-    * Si se proveen colores en `artDirection`, intentar usarlos para extender la paleta de Tailwind con colores globales dinámicos en una hoja de estilos que debe estar correctamente enrutada y manejada en el `index.html`.
-4.  **`postcss.config.js`**: Configurado para TailwindCSS y autoprefixer.
 5.  **Estructura de Carpetas y Archivos**:
     * Todas las carpetas especificadas creadas.
     * Archivos de ejemplo básicos en `/src/views/HomeView.vue`, `/src/components/DeviceFeatures.vue` (si hay permisos), y `/src/components/DevTools.vue`.
@@ -157,6 +149,6 @@ enabledPermissions:
 7.  **Archivos Misceláneos**:
     * `.gitignore` apropiado.
     * `LICENSE` (MIT).
-    * `package.json` inicializado con dependencias básicas (vue, vite, vite-plugin-pwa, tailwindcss, postcss, autoprefixer) y scripts (`dev`, `build`, `preview`). Los campos como `name`, `description`, `author`, `repository` deben usar los parámetros YAML.
+    * `package.json` inicializado con dependencias básicas (vue, vite, vite-plugin-pwa, autoprefixer) y scripts (`dev`, `build`, `preview`). Los campos como `name`, `description`, `author`, `repository` deben usar los parámetros YAML.
 8.  **`README.md`**: Completo y detallado según las especificaciones.
 9.  **(Opcional pero recomendado) Vue Router**: Configuración básica de Vue Router con la `HomeView.vue` como ruta inicial (`/`). Si se incluye, generar `/src/router/index.js`.

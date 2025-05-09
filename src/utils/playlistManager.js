@@ -1,400 +1,404 @@
-// Lógica de gestión de listas de reproducción
-export default {
-  // Métodos: addTrack, removeTrack, getTracks, etc.
-};
+import localforage from 'localforage';
 
-// Storage key for playlists
-const PLAYLISTS_STORAGE_KEY = 'pwa-musicplayer-playlists-v1';
-
-// Gestionar el acceso al directorio de música y listas de reproducción
-const DIRECTORY_HANDLE_KEY = 'music-directory-handle';
-
-// Get all playlists from local storage
-export function getAllPlaylists() {
-  try {
-    const data = localStorage.getItem(PLAYLISTS_STORAGE_KEY);
-    if (data) {
-      return JSON.parse(data);
-    }
-  } catch (error) {
-    console.error('Error loading playlists:', error);
-  }
-  return [];
-}
-
-// Save all playlists to local storage
-function saveAllPlaylists(playlists) {
-  try {
-    localStorage.setItem(PLAYLISTS_STORAGE_KEY, JSON.stringify(playlists));
-    return true;
-  } catch (error) {
-    console.error('Error saving playlists:', error);
-    return false;
-  }
-}
-
-// Create a new playlist
-export function createPlaylist(name) {
-  if (!name || typeof name !== 'string' || name.trim() === '') {
-    return null;
-  }
-  
-  const playlists = getAllPlaylists();
-  const newPlaylist = {
-    id: crypto.randomUUID(),
-    name: name.trim(),
-    createdAt: new Date().toISOString(),
-    tracks: []
-  };
-  
-  playlists.push(newPlaylist);
-  saveAllPlaylists(playlists);
-  return newPlaylist;
-}
-
-// Delete a playlist
-export function removePlaylist(playlistId) {
-  let playlists = getAllPlaylists();
-  const initialLength = playlists.length;
-  
-  playlists = playlists.filter(playlist => playlist.id !== playlistId);
-  
-  if (playlists.length !== initialLength) {
-    saveAllPlaylists(playlists);
-    return true;
-  }
-  return false;
-}
-
-// Add a track to a playlist
-export function addTrackToPlaylist(track, playlistId) {
-  const playlists = getAllPlaylists();
-  const playlist = playlists.find(p => p.id === playlistId);
-  
-  if (!playlist) return false;
-  
-  // Check if track is already in playlist
-  if (playlist.tracks.some(t => t.id === track.id)) {
-    return false;
-  }
-  
-  playlist.tracks.push({...track});
-  saveAllPlaylists(playlists);
-  return true;
-}
-
-// Remove a track from a playlist
-export function removeTrackFromPlaylist(trackId, playlistId) {
-  const playlists = getAllPlaylists();
-  const playlist = playlists.find(p => p.id === playlistId);
-  
-  if (!playlist) return false;
-  
-  const initialLength = playlist.tracks.length;
-  playlist.tracks = playlist.tracks.filter(track => track.id !== trackId);
-  
-  if (playlist.tracks.length !== initialLength) {
-    saveAllPlaylists(playlists);
-    return true;
-  }
-  return false;
-}
+// Configuración de localforage para playlists
+localforage.config({
+  name: 'PWA Music Player',
+  storeName: 'playlists_store'
+});
 
 /**
- * Guarda un FileSystemDirectoryHandle en IndexedDB para uso futuro
- * @param {FileSystemDirectoryHandle} dirHandle - El manejador del directorio
+ * Gestor de listas de reproducción
+ * Maneja la creación, edición y persistencia de listas de reproducción
  */
-export async function saveDirectoryHandle(dirHandle) {
-  if (!dirHandle || typeof dirHandle.queryPermission !== 'function') {
-    throw new Error('Manejador de directorio inválido');
+class PlaylistManager {
+  constructor() {
+    this.playlists = [];
+    this.loaded = false;
   }
   
-  try {
-    // Verificar si el navegador soporta IndexedDB
-    if (!window.indexedDB) {
-      console.warn('IndexedDB no está soportado en este navegador');
-      return;
-    }
-    
-    // Convertir el handle para almacenarlo en localStorage
-    localStorage.setItem(DIRECTORY_HANDLE_KEY, JSON.stringify({
-      id: dirHandle.name,
-      kind: dirHandle.kind,
-      timestamp: Date.now()
-    }));
-    
-    // Almacenar el FileSystemDirectoryHandle real
-    if ('caches' in window) {
-      const cache = await caches.open('dir-handles');
-      await cache.put(DIRECTORY_HANDLE_KEY, new Response(JSON.stringify(dirHandle)));
-    } else {
-      // Caché fallback usando IndexedDB
-      const db = await openDB();
-      const tx = db.transaction(['handles'], 'readwrite');
-      const store = tx.objectStore('handles');
-      await store.put(dirHandle, DIRECTORY_HANDLE_KEY);
-      await tx.complete;
-      db.close();
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Error al guardar el manejador de directorio:', error);
-    return false;
-  }
-}
-
-/**
- * Obtiene el FileSystemDirectoryHandle almacenado anteriormente
- */
-export async function getDirectoryHandle() {
-  // En navegadores que no soportan File System Access API
-  if (!('showDirectoryPicker' in window)) {
-    return null;
-  }
-  
-  try {
-    // Primero intentamos obtener de IndexedDB/Cache
-    if ('caches' in window) {
-      const cache = await caches.open('dir-handles');
-      const response = await cache.match(DIRECTORY_HANDLE_KEY);
-      if (response) {
-        return await response.json();
-      }
-    } else {
-      // Fallback a IndexedDB
-      const db = await openDB();
-      const tx = db.transaction(['handles'], 'readonly');
-      const store = tx.objectStore('handles');
-      const dirHandle = await store.get(DIRECTORY_HANDLE_KEY);
-      db.close();
+  /**
+   * Carga las listas de reproducción guardadas
+   */
+  async loadPlaylists() {
+    try {
+      const savedPlaylists = await localforage.getItem('playlists');
       
-      if (dirHandle) {
-        return dirHandle;
-      }
-    }
-  } catch (error) {
-    console.warn('Error al recuperar el manejador de directorio:', error);
-  }
-  
-  return null;
-}
-
-/**
- * Elimina el FileSystemDirectoryHandle almacenado
- */
-export async function clearDirectoryHandle() {
-  try {
-    localStorage.removeItem(DIRECTORY_HANDLE_KEY);
-    
-    // Limpiar de cache
-    if ('caches' in window) {
-      const cache = await caches.open('dir-handles');
-      await cache.delete(DIRECTORY_HANDLE_KEY);
-    }
-    
-    // Limpiar de IndexedDB
-    const db = await openDB();
-    const tx = db.transaction(['handles'], 'readwrite');
-    const store = tx.objectStore('handles');
-    await store.delete(DIRECTORY_HANDLE_KEY);
-    await tx.complete;
-    db.close();
-    
-    return true;
-  } catch (error) {
-    console.error('Error al eliminar el manejador de directorio:', error);
-    return false;
-  }
-}
-
-/**
- * Abre la base de datos IndexedDB
- */
-function openDB() {
-  return new Promise((resolve, reject) => {
-    const request = window.indexedDB.open('pwa-music-player-db', 1);
-    
-    request.onerror = event => {
-      reject('Error al abrir la base de datos');
-    };
-    
-    request.onsuccess = event => {
-      resolve(event.target.result);
-    };
-    
-    request.onupgradeneeded = event => {
-      const db = event.target.result;
-      // Crear object store si no existe
-      if (!db.objectStoreNames.contains('handles')) {
-        db.createObjectStore('handles');
-      }
-    };
-  });
-}
-
-/**
- * Lee y procesa un archivo de lista de reproducción
- * @param {File} file - Archivo de lista de reproducción
- * @returns {Array} Lista de pistas
- */
-export async function parsePlaylistFile(file) {
-  try {
-    const content = await file.text();
-    const extension = file.name.split('.').pop().toLowerCase();
-    
-    switch (extension) {
-      case 'm3u':
-        return parseM3UPlaylist(content);
-      case 'pls':
-        return parsePLSPlaylist(content);
-      case 'json':
-        return parseJSONPlaylist(content);
-      default:
-        throw new Error('Formato de lista de reproducción no soportado');
-    }
-  } catch (error) {
-    console.error('Error al analizar la lista de reproducción:', error);
-    return [];
-  }
-}
-
-/**
- * Analiza una lista de reproducción en formato M3U
- * @param {string} content - Contenido del archivo M3U
- * @returns {Array} Lista de pistas
- */
-function parseM3UPlaylist(content) {
-  const lines = content.split('\n');
-  const tracks = [];
-  let currentTrack = {};
-  
-  for (let line of lines) {
-    line = line.trim();
-    if (line === '' || line.startsWith('#EXTM3U')) continue;
-    
-    if (line.startsWith('#EXTINF:')) {
-      // Línea de información de pista
-      const info = line.substring(8).split(',', 2);
-      currentTrack = {
-        id: crypto.randomUUID(),
-        duration: parseInt(info[0]) || 0,
-        name: info[1] || 'Pista desconocida',
-        path: ''
-      };
-    } else if (!line.startsWith('#')) {
-      // Línea de ruta de archivo
-      if (Object.keys(currentTrack).length > 0) {
-        currentTrack.path = line;
-        tracks.push({...currentTrack});
-        currentTrack = {};
+      if (savedPlaylists && Array.isArray(savedPlaylists)) {
+        this.playlists = savedPlaylists;
+        this.loaded = true;
+        return this.playlists;
       } else {
-        // Si no hay información previa, crear una pista con nombre del archivo
-        const fileName = line.split('/').pop().split('\\').pop();
-        tracks.push({
-          id: crypto.randomUUID(),
-          name: fileName,
-          path: line,
-          duration: 0
-        });
+        // Si no hay listas guardadas, creamos una por defecto
+        this.playlists = [{
+          id: 'favorites',
+          name: 'Favoritos',
+          tracks: []
+        }];
+        this.loaded = true;
+        await this.savePlaylists();
+        return this.playlists;
       }
+    } catch (error) {
+      console.error('Error al cargar listas de reproducción:', error);
+      return [];
     }
   }
   
-  return tracks;
+  /**
+   * Guarda las listas de reproducción
+   */
+  async savePlaylists() {
+    try {
+      await localforage.setItem('playlists', this.playlists);
+      return true;
+    } catch (error) {
+      console.error('Error al guardar listas de reproducción:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Obtiene todas las listas de reproducción
+   */
+  async getPlaylists() {
+    if (!this.loaded) {
+      await this.loadPlaylists();
+    }
+    return this.playlists;
+  }
+  
+  /**
+   * Obtiene una lista de reproducción por su ID
+   */
+  async getPlaylist(playlistId) {
+    if (!this.loaded) {
+      await this.loadPlaylists();
+    }
+    return this.playlists.find(p => p.id === playlistId) || null;
+  }
+  
+  /**
+   * Crea una nueva lista de reproducción
+   */
+  async createPlaylist(name) {
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      throw new Error('El nombre de la lista no puede estar vacío');
+    }
+    
+    if (!this.loaded) {
+      await this.loadPlaylists();
+    }
+    
+    const newPlaylist = {
+      id: `playlist_${Date.now()}`,
+      name: name.trim(),
+      tracks: [],
+      created: new Date().toISOString()
+    };
+    
+    this.playlists.push(newPlaylist);
+    await this.savePlaylists();
+    
+    return newPlaylist;
+  }
+  
+  /**
+   * Actualiza una lista de reproducción existente
+   */
+  async updatePlaylist(playlistId, updates) {
+    if (!this.loaded) {
+      await this.loadPlaylists();
+    }
+    
+    const index = this.playlists.findIndex(p => p.id === playlistId);
+    
+    if (index === -1) {
+      throw new Error(`No se encontró una lista con ID ${playlistId}`);
+    }
+    
+    // Actualizamos solo los campos permitidos
+    if (updates.name && typeof updates.name === 'string' && updates.name.trim()) {
+      this.playlists[index].name = updates.name.trim();
+    }
+    
+    if (Array.isArray(updates.tracks)) {
+      this.playlists[index].tracks = updates.tracks;
+    }
+    
+    this.playlists[index].updated = new Date().toISOString();
+    
+    await this.savePlaylists();
+    return this.playlists[index];
+  }
+  
+  /**
+   * Elimina una lista de reproducción
+   */
+  async deletePlaylist(playlistId) {
+    if (!this.loaded) {
+      await this.loadPlaylists();
+    }
+    
+    // No permitimos eliminar la lista de favoritos
+    if (playlistId === 'favorites') {
+      throw new Error('No se puede eliminar la lista de favoritos');
+    }
+    
+    const initialLength = this.playlists.length;
+    this.playlists = this.playlists.filter(p => p.id !== playlistId);
+    
+    if (this.playlists.length === initialLength) {
+      throw new Error(`No se encontró una lista con ID ${playlistId}`);
+    }
+    
+    await this.savePlaylists();
+    return true;
+  }
+  
+  /**
+   * Añade una pista a una lista de reproducción
+   */
+  async addTrackToPlaylist(playlistId, track) {
+    if (!track || !track.id) {
+      throw new Error('La pista no es válida');
+    }
+    
+    if (!this.loaded) {
+      await this.loadPlaylists();
+    }
+    
+    const playlist = this.playlists.find(p => p.id === playlistId);
+    
+    if (!playlist) {
+      throw new Error(`No se encontró una lista con ID ${playlistId}`);
+    }
+    
+    // Verificamos si la pista ya está en la lista
+    if (playlist.tracks.some(t => t.id === track.id)) {
+      return playlist; // La pista ya está en la lista
+    }
+    
+    playlist.tracks.push(track);
+    playlist.updated = new Date().toISOString();
+    
+    await this.savePlaylists();
+    return playlist;
+  }
+  
+  /**
+   * Elimina una pista de una lista de reproducción
+   */
+  async removeTrackFromPlaylist(playlistId, trackId) {
+    if (!this.loaded) {
+      await this.loadPlaylists();
+    }
+    
+    const playlist = this.playlists.find(p => p.id === playlistId);
+    
+    if (!playlist) {
+      throw new Error(`No se encontró una lista con ID ${playlistId}`);
+    }
+    
+    const initialLength = playlist.tracks.length;
+    playlist.tracks = playlist.tracks.filter(t => t.id !== trackId);
+    
+    if (playlist.tracks.length === initialLength) {
+      throw new Error(`La pista con ID ${trackId} no está en la lista`);
+    }
+    
+    playlist.updated = new Date().toISOString();
+    await this.savePlaylists();
+    
+    return playlist;
+  }
+  
+  /**
+   * Reordena las pistas de una lista de reproducción
+   */
+  async reorderPlaylistTracks(playlistId, newOrder) {
+    if (!this.loaded) {
+      await this.loadPlaylists();
+    }
+    
+    const playlist = this.playlists.find(p => p.id === playlistId);
+    
+    if (!playlist) {
+      throw new Error(`No se encontró una lista con ID ${playlistId}`);
+    }
+    
+    if (!Array.isArray(newOrder) || 
+        newOrder.length !== playlist.tracks.length || 
+        !newOrder.every(i => typeof i === 'number' && i >= 0 && i < playlist.tracks.length)) {
+      throw new Error('El nuevo orden no es válido');
+    }
+    
+    // Reordenamos las pistas según el nuevo orden
+    const reorderedTracks = newOrder.map(i => playlist.tracks[i]);
+    playlist.tracks = reorderedTracks;
+    playlist.updated = new Date().toISOString();
+    
+    await this.savePlaylists();
+    return playlist;
+  }
+  
+  /**
+   * Exporta una lista de reproducción a formato M3U
+   */
+  async exportPlaylistToM3U(playlist) {
+    if (!playlist || !Array.isArray(playlist.tracks)) {
+      throw new Error('La lista de reproducción no es válida');
+    }
+    
+    let m3uContent = '#EXTM3U\n';
+    
+    playlist.tracks.forEach(track => {
+      m3uContent += `#EXTINF:${track.duration || -1},${track.artist || 'Unknown'} - ${track.name || 'Unknown'}\n`;
+      m3uContent += `${track.filePath || track.url || ''}\n`;
+    });
+    
+    return m3uContent;
+  }
+  
+  /**
+   * Importa una lista de reproducción desde formato M3U
+   * Nota: Requiere acceso a los archivos para verificar que existan
+   */
+  async importPlaylistFromM3U(name, content, resolveFilePaths) {
+    if (!name || !content) {
+      throw new Error('Nombre y contenido son requeridos');
+    }
+    
+    try {
+      const lines = content.split('\n');
+      const tracks = [];
+      let currentTrack = null;
+      
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        
+        if (!line || line.startsWith('#EXTM3U')) {
+          continue;
+        }
+        
+        if (line.startsWith('#EXTINF:')) {
+          // Formato: #EXTINF:duración,artista - título
+          const infoMatch = line.match(/#EXTINF:([^,]*),(.*)/);
+          
+          if (infoMatch) {
+            const [, durationStr, title] = infoMatch;
+            const duration = parseFloat(durationStr) || 0;
+            let artist = '';
+            let trackName = title;
+            
+            // Intentamos separar artista y título
+            const titleParts = title.split(' - ');
+            if (titleParts.length > 1) {
+              artist = titleParts[0];
+              trackName = titleParts.slice(1).join(' - ');
+            }
+            
+            currentTrack = {
+              name: trackName,
+              artist,
+              duration
+            };
+          }
+        } else if (line && currentTrack) {
+          // Esta línea contiene la ruta del archivo
+          currentTrack.filePath = line;
+          
+          // Si se proporciona una función para resolver rutas, la usamos
+          if (typeof resolveFilePaths === 'function') {
+            try {
+              const resolvedTrack = await resolveFilePaths(currentTrack);
+              if (resolvedTrack) {
+                tracks.push(resolvedTrack);
+              }
+            } catch (err) {
+              console.warn('No se pudo resolver el archivo:', line, err);
+            }
+          } else {
+            // Si no hay función para resolver, añadimos el track tal cual
+            currentTrack.id = `imported_${Date.now()}_${tracks.length}`;
+            tracks.push(currentTrack);
+          }
+          
+          currentTrack = null;
+        }
+      }
+      
+      // Creamos la nueva lista de reproducción
+      const newPlaylist = await this.createPlaylist(name);
+      
+      // Actualizamos con las pistas importadas
+      newPlaylist.tracks = tracks;
+      newPlaylist.imported = true;
+      newPlaylist.importDate = new Date().toISOString();
+      
+      await this.savePlaylists();
+      return newPlaylist;
+    } catch (error) {
+      console.error('Error al importar playlist M3U:', error);
+      throw new Error(`Error al importar: ${error.message}`);
+    }
+  }
+  
+  /**
+   * Analiza una lista de reproducción en formato JSON
+   * @param {string} content - Contenido del archivo JSON
+   * @returns {Array} Lista de pistas
+   */
+  async parseJSONPlaylist(content, name) {
+    try {
+      const data = JSON.parse(content);
+      let tracks = [];
+      
+      if (Array.isArray(data)) {
+        // Array simple de pistas
+        tracks = data.map(track => ({
+          id: track.id || `imported_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+          name: track.name || track.title || 'Pista sin título',
+          artist: track.artist || '',
+          album: track.album || '',
+          filePath: track.path || track.url || track.filePath || '',
+          duration: track.duration || 0
+        }));
+      } else if (data.tracks && Array.isArray(data.tracks)) {
+        // Formato con metadatos y array de pistas
+        tracks = data.tracks.map(track => ({
+          id: track.id || `imported_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+          name: track.name || track.title || 'Pista sin título',
+          artist: track.artist || '',
+          album: track.album || '',
+          filePath: track.path || track.url || track.filePath || '',
+          duration: track.duration || 0
+        }));
+        
+        // Si hay nombre en los metadatos, lo usamos
+        if (data.name && !name) {
+          name = data.name;
+        }
+      } else {
+        throw new Error('Formato JSON no reconocido');
+      }
+      
+      // Creamos la nueva lista de reproducción
+      const newPlaylist = await this.createPlaylist(name || 'Lista importada');
+      
+      // Actualizamos con las pistas importadas
+      newPlaylist.tracks = tracks;
+      newPlaylist.imported = true;
+      newPlaylist.importDate = new Date().toISOString();
+      
+      await this.savePlaylists();
+      return newPlaylist;
+    } catch (error) {
+      console.error('Error al analizar JSON:', error);
+      throw new Error(`Error al importar: ${error.message}`);
+    }
+  }
 }
 
-/**
- * Analiza una lista de reproducción en formato PLS
- * @param {string} content - Contenido del archivo PLS
- * @returns {Array} Lista de pistas
- */
-function parsePLSPlaylist(content) {
-  const lines = content.split('\n');
-  const tracks = [];
-  let trackCount = 0;
-  const trackData = {};
-  
-  for (let line of lines) {
-    line = line.trim();
-    if (line === '' || line.startsWith('[playlist]')) continue;
-    
-    if (line.startsWith('NumberOfEntries=')) {
-      trackCount = parseInt(line.split('=')[1]) || 0;
-      continue;
-    }
-    
-    // Formato: File1=ruta, Title1=título, Length1=duración
-    const match = line.match(/^(File|Title|Length)(\d+)=(.*)$/i);
-    if (match) {
-      const [, type, numStr, value] = match;
-      const num = parseInt(numStr);
-      
-      if (!trackData[num]) trackData[num] = {
-        id: crypto.randomUUID(),
-        path: '',
-        name: `Pista ${num}`,
-        duration: 0
-      };
-      
-      switch (type.toLowerCase()) {
-        case 'file':
-          trackData[num].path = value;
-          break;
-        case 'title':
-          trackData[num].name = value;
-          break;
-        case 'length':
-          trackData[num].duration = parseInt(value) || 0;
-          break;
-      }
-    }
-  }
-  
-  // Convertir el objeto a un array
-  for (let i = 1; i <= trackCount; i++) {
-    if (trackData[i]) {
-      tracks.push(trackData[i]);
-    }
-  }
-  
-  return tracks;
-}
-
-/**
- * Analiza una lista de reproducción en formato JSON
- * @param {string} content - Contenido del archivo JSON
- * @returns {Array} Lista de pistas
- */
-function parseJSONPlaylist(content) {
-  try {
-    const data = JSON.parse(content);
-    
-    if (Array.isArray(data)) {
-      // Array simple de pistas
-      return data.map(track => ({
-        id: track.id || crypto.randomUUID(),
-        name: track.name || track.title || 'Pista sin título',
-        artist: track.artist || '',
-        album: track.album || '',
-        path: track.path || track.url || '',
-        duration: track.duration || 0
-      }));
-    } else if (data.tracks && Array.isArray(data.tracks)) {
-      // Formato con metadatos y array de pistas
-      return data.tracks.map(track => ({
-        id: track.id || crypto.randomUUID(),
-        name: track.name || track.title || 'Pista sin título',
-        artist: track.artist || '',
-        album: track.album || '',
-        path: track.path || track.url || '',
-        duration: track.duration || 0
-      }));
-    } else {
-      throw new Error('Formato JSON no reconocido');
-    }
-  } catch (error) {
-    console.error('Error al analizar JSON:', error);
-    return [];
-  }
-}
+// Exportamos una sola instancia
+const playlistManager = new PlaylistManager();
+export default playlistManager;
