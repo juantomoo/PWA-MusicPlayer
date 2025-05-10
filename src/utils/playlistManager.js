@@ -575,8 +575,9 @@ class PlaylistManager {
 
   /**
    * Escanea el directorio seleccionado y crea una sola playlist con todas las pistas encontradas
+   * @param {Function} onProgress - callback({ processed, total })
    */
-  async selectAndScanMusicDirectory() {
+  async selectAndScanMusicDirectory(onProgress) {
     try {
       console.log('Solicitando directorio de música...');
       const directoryHandle = await getDirectoryHandle();
@@ -598,8 +599,22 @@ class PlaylistManager {
       await localforage.setItem('musicDirectory', directoryHandle);
       console.log('Directorio guardado en localforage');
 
-      // Recorrer recursivamente el directorio y subdirectorios para recolectar todas las pistas
+      // 1. Contar archivos primero para saber el total
+      let totalFiles = 0;
+      async function countFiles(dirHandle) {
+        for await (const entry of dirHandle.values()) {
+          if (entry.kind === 'file' && entry.name.toLowerCase().endsWith('.mp3')) {
+            totalFiles++;
+          } else if (entry.kind === 'directory') {
+            await countFiles(entry);
+          }
+        }
+      }
+      await countFiles(directoryHandle);
+
+      // 2. Recorrer y procesar archivos, reportando progreso
       const allTracks = [];
+      let processed = 0;
       async function scanDir(dirHandle) {
         for await (const entry of dirHandle.values()) {
           if (entry.kind === 'file' && entry.name.toLowerCase().endsWith('.mp3')) {
@@ -615,6 +630,10 @@ class PlaylistManager {
               });
             } catch (fileError) {
               console.error(`Error procesando archivo ${entry.name}:`, fileError);
+            }
+            processed++;
+            if (typeof onProgress === 'function') {
+              onProgress({ processed, total: totalFiles });
             }
           } else if (entry.kind === 'directory') {
             await scanDir(entry);

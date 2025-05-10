@@ -17,6 +17,14 @@
         @remove="onRemove"
       />
     </div>
+    <div v-if="isImporting" class="import-progress-overlay">
+      <LoadingProgress
+        :processed="importProgress.processed"
+        :total="importProgress.total"
+        :message="'Importando tu biblioteca de música...'"
+        :showCounts="true"
+      />
+    </div>
   </div>
 </template>
 
@@ -25,9 +33,14 @@ import { ref, onMounted } from 'vue';
 import playlistManager from '../utils/playlistManager';
 import { usePlayerStore } from '../store/playerStore';
 import Playlist from '../components/Playlist.vue';
+import LoadingProgress from '../components/LoadingProgress.vue';
 
 const playerStore = usePlayerStore();
 const playlist = ref(null);
+
+// Estado para progreso de importación
+const isImporting = ref(false);
+const importProgress = ref({ processed: 0, total: 0 });
 
 async function loadGlobalPlaylist() {
   playlist.value = await playlistManager.getGlobalPlaylist();
@@ -41,12 +54,16 @@ onMounted(async () => {
 });
 
 async function selectMusicDirectory() {
-  await playlistManager.selectAndScanMusicDirectory();
+  isImporting.value = true;
+  importProgress.value = { processed: 0, total: 0 };
+  await playlistManager.selectAndScanMusicDirectory((progress) => {
+    importProgress.value = progress;
+  });
+  isImporting.value = false;
   await loadGlobalPlaylist();
 }
 
 async function rescanDirectories() {
-  // Reutiliza la lógica de seleccionar directorio para forzar reescaneo
   await selectMusicDirectory();
 }
 
@@ -82,5 +99,17 @@ function onRemove(trackId) {
 .hint {
   color: var(--color-text-secondary);
   font-size: 0.9em;
+}
+.import-progress-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.55);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>
