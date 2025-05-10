@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import localforage from 'localforage';
 import audioManager from '../utils/audioManager';
+import playlistManager from '../utils/playlistManager';
 
 // Configuración de localforage para el player
 localforage.config({
@@ -64,23 +65,28 @@ export const usePlayerStore = defineStore('player', {
     },
 
     // Establecer la pista actual
-    setCurrentTrack(track) {
+    async setCurrentTrack(track, play = true) {
       if (!track) return;
-      
+      // Busca y asigna carátula si falta
+      if (!track.coverArt && !track.coverUrl) {
+        const global = await playlistManager.getGlobalPlaylist();
+        const found = global?.tracks?.find(t => t.id === track.id);
+        if (found) {
+          track.coverArt = found.coverArt;
+          track.coverUrl = found.coverUrl;
+        }
+      }
       this.currentTrack = track;
-      
       // Actualizar índice si la pista está en la playlist global
       if (this.globalPlaylist.length > 0) {
-        const index = this.globalPlaylist.findIndex(t => 
-          t.id === track.id || 
+        const index = this.globalPlaylist.findIndex(t =>
+          t.id === track.id ||
           (t.name === track.name && t.artist === track.artist && t.album === track.album)
         );
-        
         if (index !== -1) {
           this.playbackIndex = index;
         }
       }
-      
       // Actualizar metadata para MediaSession API
       if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({
@@ -90,13 +96,15 @@ export const usePlayerStore = defineStore('player', {
           artwork: track.coverUrl ? [{ src: track.coverUrl }] : []
         });
       }
-      
-      // Guardar estado
       this.saveState();
+      // Reproducir el archivo si corresponde
+      if (play && track.fileHandle) {
+        audioManager.playFile(track.fileHandle).catch(() => {});
+      }
     },
 
     // Reproducir siguiente pista
-    playNext() {
+    async playNext() {
       if (!this.globalPlaylist || this.globalPlaylist.length === 0) return null;
 
       let nextIndex;
@@ -118,17 +126,13 @@ export const usePlayerStore = defineStore('player', {
         }
       }
       
-      this.playbackIndex = nextIndex;
-      this.currentTrack = this.globalPlaylist[nextIndex];
-      
-      // Guardar estado
-      this.saveState();
-      
+      const nextTrack = this.globalPlaylist[nextIndex];
+      await this.setCurrentTrack(nextTrack, true);
       return this.currentTrack;
     },
 
     // Reproducir pista anterior
-    playPrevious() {
+    async playPrevious() {
       if (!this.globalPlaylist || this.globalPlaylist.length === 0) return null;
 
       let prevIndex;
@@ -150,12 +154,8 @@ export const usePlayerStore = defineStore('player', {
         }
       }
       
-      this.playbackIndex = prevIndex;
-      this.currentTrack = this.globalPlaylist[prevIndex];
-      
-      // Guardar estado
-      this.saveState();
-      
+      const prevTrack = this.globalPlaylist[prevIndex];
+      await this.setCurrentTrack(prevTrack, true);
       return this.currentTrack;
     },
 
