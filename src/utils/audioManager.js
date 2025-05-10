@@ -277,8 +277,18 @@ class AudioManager {
       });
       
       navigator.mediaSession.setActionHandler('seekto', (details) => {
-        if (this.audioElement && details.seekTime) {
+        if (this.audioElement && details.seekTime != null) {
           this.audioElement.currentTime = details.seekTime;
+        }
+      });
+
+      navigator.mediaSession.setActionHandler('stop', () => {
+        this.pause();
+        if (this.audioElement) {
+          this.audioElement.currentTime = 0;
+        }
+        if (this.playerStore) {
+          this.playerStore.setPlayingState(false);
         }
       });
     }
@@ -525,6 +535,24 @@ class AudioManager {
     this.analyserNode = null;
     this.equalizerNodes = [];
     this.initialized = false;
+  }
+
+  /**
+   * Notificación si termina la playlist o hay error/crash
+   */
+  notifyEndOrError(reason) {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      let body = '';
+      if (reason === 'end') {
+        body = 'La playlist ha terminado.';
+      } else {
+        body = 'Ocurrió un error en la reproducción.';
+      }
+      new Notification('PWA Music Player', {
+        body,
+        icon: '/icons/icon-192x192.png'
+      });
+    }
   }
 }
 

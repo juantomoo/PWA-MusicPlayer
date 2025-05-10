@@ -89,11 +89,37 @@ export const usePlayerStore = defineStore('player', {
       }
       // Actualizar metadata para MediaSession API
       if ('mediaSession' in navigator) {
+        // Artwork: varios tamaños y fallback
+        const artwork = [];
+        if (track.coverUrl) {
+          artwork.push(
+            { src: track.coverUrl, sizes: '512x512', type: 'image/png' },
+            { src: track.coverUrl, sizes: '192x192', type: 'image/png' }
+          );
+        } else {
+          artwork.push(
+            { src: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+            { src: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' }
+          );
+        }
         navigator.mediaSession.metadata = new MediaMetadata({
           title: track.name || 'Desconocido',
           artist: track.artist || 'Artista desconocido',
           album: track.album || 'Álbum desconocido',
-          artwork: track.coverUrl ? [{ src: track.coverUrl }] : []
+          artwork
+        });
+        // Handlers reactivos para seekto y stop
+        navigator.mediaSession.setActionHandler('seekto', (details) => {
+          if (details.seekTime != null && audioManager.audioElement) {
+            audioManager.audioElement.currentTime = details.seekTime;
+          }
+        });
+        navigator.mediaSession.setActionHandler('stop', () => {
+          audioManager.pause();
+          if (audioManager.audioElement) {
+            audioManager.audioElement.currentTime = 0;
+          }
+          this.setPlayingState(false);
         });
       }
       this.saveState();

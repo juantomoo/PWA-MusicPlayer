@@ -19,7 +19,7 @@ export default defineConfig({
         description: 'Aplicación web offline para reproducción de música de los directorios del usuario con sus respectivos formatos mp3, flac, ogg, wav y extensiones de listas de reproducción tanto de archivos locales como de archivos remotos. La aplicación puede funcionar completamente fuera de línea por lo que no recolecta información privada y así puedes tener lo mejor de escuchar música con calidad de forma libre, segura y fluida aunque el navegador no esté en primer plano y pudiendo usar los controles multimedia como en otras aplicaciones populares de reproducción multimedia.',
         start_url: '.',
         display: 'standalone',
-        background_color: '#48CBA9',
+        background_color: '#1A1225',
         theme_color: '#552A93',
         icons: [
           {
@@ -48,6 +48,28 @@ export default defineConfig({
               },
             },
           },
+          {
+            urlPattern: /\/icons\/.*\.(?:png|svg|ico)$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'icon-cache',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 365,
+              },
+            },
+          },
+          {
+            urlPattern: /\.(?:js|css|html|woff2|woff|ttf)$/,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'static-cache',
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24 * 365,
+              },
+            },
+          }
         ],
       },
       devOptions: {

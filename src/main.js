@@ -46,3 +46,17 @@ if ('serviceWorker' in navigator) {
       })
   })
 }
+
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // Mostrar un banner/botón personalizado
+  window.dispatchEvent(new CustomEvent('show-install-banner'));
+});
+
+window.addEventListener('appinstalled', () => {
+  deferredPrompt = null;
+  // Ocultar el banner/botón
+  window.dispatchEvent(new CustomEvent('hide-install-banner'));
+});
