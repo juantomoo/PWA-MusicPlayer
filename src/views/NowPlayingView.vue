@@ -2,7 +2,7 @@
   <div class="now-playing">
     <div v-if="currentTrack" class="track-container">
       <div class="cover-container">
-        <img v-if="currentTrack.coverUrl" :src="currentTrack.coverUrl" alt="Cover Art" class="cover-art" />
+        <img v-if="coverImageUrl" :src="coverImageUrl" alt="Cover Art" class="cover-art" />
         <div v-else class="cover-placeholder">
           <span>🎵</span>
         </div>
@@ -52,6 +52,15 @@ const playerStore = usePlayerStore();
 const currentTrack = computed(() => playerStore.currentTrack);
 const currentTime = ref(0);
 const duration = ref(0);
+
+// Robust cover art logic: prefer coverArt, fallback to coverUrl
+const coverImageUrl = computed(() => {
+  const track = currentTrack.value;
+  if (!track) return null;
+  if (track.coverArt) return track.coverArt;
+  if (track.coverUrl) return track.coverUrl;
+  return null;
+});
 
 // Formateador de tiempo (mm:ss)
 const formatTime = (timeInSeconds) => {
