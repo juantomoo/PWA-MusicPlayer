@@ -212,7 +212,7 @@ export const usePlayerStore = defineStore('player', {
     // Guardar estado completo
     saveState() {
       try {
-        // Solo metadatos esenciales, nunca blobs ni carátulas
+        // Solo metadatos esenciales, nunca blobs ni carátulas ni fileHandle
         const serializableState = {
           lastUsedPlaylistId: this.lastUsedPlaylistId,
           volume: this.volume,
@@ -228,6 +228,7 @@ export const usePlayerStore = defineStore('player', {
             year: track.year,
             genre: track.genre,
             favorite: track.favorite || false
+            // fileHandle, coverArt, coverUrl, blobs, etc. NO se serializan
           }))
         };
         localforage.setItem('playerState', serializableState)

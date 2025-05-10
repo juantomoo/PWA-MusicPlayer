@@ -310,13 +310,12 @@ class AudioManager {
       console.error('No se proporcionó un manejador de archivo');
       return Promise.reject('No se proporcionó un manejador de archivo');
     }
-    
     try {
       // Inicializamos si es necesario
       if (!this.initialized) {
         this.initialize();
       }
-      
+
       // Verificamos y solicitamos permisos si es necesario
       const permission = await fileHandle.queryPermission({ mode: 'read' });
       if (permission !== 'granted') {
@@ -326,40 +325,45 @@ class AudioManager {
           throw new Error('Permiso denegado para acceder al archivo');
         }
       }
-      
+
+      // Pausar y limpiar el elemento de audio antes de asignar nueva pista
+      if (this.audioElement) {
+        this.audioElement.pause();
+        this.audioElement.removeAttribute('src');
+        this.audioElement.load();
+      }
+
       // Obtenemos el archivo
       const file = await fileHandle.getFile();
-      
+
       // Creamos una URL para el archivo
       const fileUrl = URL.createObjectURL(file);
-      
+
       // Limpiamos cualquier URL anterior para evitar fugas de memoria
       if (this.audioElement.src) {
         URL.revokeObjectURL(this.audioElement.src);
       }
-      
+
       // Asignamos la URL al elemento de audio
       this.audioElement.src = fileUrl;
-      
+
       // Reproducimos
       console.log('Reproduciendo archivo:', file.name);
       const playPromise = this.play();
-      
+
       // Actualizar el título de la página con la info de la pista
       if (this.playerStore && this.playerStore.currentTrack) {
         const track = this.playerStore.currentTrack;
         document.title = `${track.name || 'Desconocido'} - ${track.artist || 'Desconocido'} | PWA Music Player`;
       }
-      
+
       return playPromise;
     } catch (error) {
       console.error('Error al reproducir archivo:', error);
-      
       if (this.playerStore) {
         this.playerStore.error = `Error al reproducir: ${error.message}`;
         this.playerStore.setPlayingState(false);
       }
-      
       return Promise.reject(`Error al reproducir archivo: ${error.message}`);
     }
   }
