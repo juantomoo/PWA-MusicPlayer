@@ -71,6 +71,10 @@ const filteredTracks = computed(() => {
   return result;
 });
 
+watch(filteredTracks, (tracks) => {
+  playerStore.setGlobalPlaylist(tracks);
+});
+
 function sortBy(field) {
   if (sortField.value === field) {
     sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
@@ -123,7 +127,7 @@ function removeFromPlaylist(track) {
   border-radius: 4px;
   border: 1px solid var(--color-vaporwave4);
   background: rgba(0,0,0,0.1);
-  color: white;
+  color: var(--color-vaporwave4);
 }
 .playlist-table {
   width: 100%;
@@ -131,8 +135,8 @@ function removeFromPlaylist(track) {
   background: transparent;
 }
 .playlist-table th {
-  background: var(--color-vaporwave4);
-  color: white;
+  background: var(--color-vaporwave5);
+  color: var(--color-vaporwave4);
   cursor: pointer;
   padding: 0.5rem;
   user-select: none;
@@ -140,12 +144,12 @@ function removeFromPlaylist(track) {
 }
 .playlist-table td {
   padding: 0.5rem;
-  color: white;
+  color: var(--color-vaporwave4);
   background: rgba(0,0,0,0.1);
 }
 .playlist-table tr.active {
-  background: var(--color-vaporwave1);
-  color: white;
+  background: var(--color-vaporwave2);
+  color: var(--color-vaporwave4);
 }
 .track-title-cell {
   display: flex;
@@ -153,11 +157,10 @@ function removeFromPlaylist(track) {
   gap: 0.5rem;
 }
 .track-cover-thumb {
-  width: 32px;
-  height: 32px;
+  width: 55px;
+  height: 55px;
   object-fit: cover;
   border-radius: 4px;
-  border: 1px solid var(--color-vaporwave4);
 }
 button {
   background: none;

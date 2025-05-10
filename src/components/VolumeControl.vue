@@ -17,7 +17,7 @@
         :value="isMuted ? 0 : volume" 
         @input="handleVolumeChange" 
         class="flex-grow h-2 volume-slider"
-        :style="`background: linear-gradient(to right, var(--color-vaporwave4) 0%, var(--color-vaporwave4) ${volumePercentage}%, var(--color-vaporwave5) ${volumePercentage}%, var(--color-vaporwave5) 100%);`"
+        :style="`background: linear-gradient(to right, #FDC47F 0%, #FDC47F ${volumePercentage}%, #1A1225 ${volumePercentage}%, #1A1225 100%);`"
       />
     </div>
   </div>
@@ -82,31 +82,5 @@ function toggleMute() {
 </script>
 
 <style scoped>
-.volume-slider {
-  -webkit-appearance: none;
-  appearance: none;
-  height: 4px;
-  background: var(--color-vaporwave5);
-  cursor: pointer;
-}
 
-.volume-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 12px;
-  height: 12px;
-  background: var(--color-vaporwave4);
-  cursor: pointer;
-  border-radius: 0;
-  border: none;
-}
-
-.volume-slider::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
-  background: var(--color-vaporwave4);
-  cursor: pointer;
-  border-radius: 0;
-  border: none;
-}
 </style>

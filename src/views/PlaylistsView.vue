@@ -73,17 +73,6 @@ function onRemove(trackId) {
   gap: var(--space-md);
   margin-bottom: var(--space-lg);
 }
-button {
-  padding: var(--space-sm) var(--space-md);
-  background-color: var(--color-vaporwave5);
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-button:hover {
-  background-color: var(--color-vaporwave1);
-}
 .empty-state {
   text-align: center;
   padding: var(--space-xl);
