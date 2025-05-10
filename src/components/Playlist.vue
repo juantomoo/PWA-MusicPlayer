@@ -1,10 +1,10 @@
 <template>
   <div class="playlist-table-container" @scroll.passive="onScroll" ref="playlistContainer">
     <div class="playlist-table-controls">
-      <input v-model="filterText" type="text" placeholder="Filtrar canciones..." class="playlist-filter-input" />
+      <input v-model="filterText" type="text" placeholder="Filtrar canciones..." class="playlist-filter-input sombra-alt" />
     </div>
-    <table class="playlist-table">
-      <thead>
+    <table class="playlist-table sombra-alt">
+      <thead class="sombra">
         <tr>
           <th @click="sortBy('name')">Título <span v-if="sortField==='name'">{{ sortOrder==='asc'?'▲':'▼' }}</span></th>
           <th @click="sortBy('artist')">Artista <span v-if="sortField==='artist'">{{ sortOrder==='asc'?'▲':'▼' }}</span></th>
@@ -13,7 +13,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="(track, idx) in visibleTracks" :key="track.id" :class="{active: isCurrentTrack(track)}" @click="playTrack(track)">
+        <tr class="sombra-alt" v-for="(track, idx) in visibleTracks" :key="track.id" :class="{active: isCurrentTrack(track)}" @click="playTrack(track)">
           <td>
             <div class="track-title-cell">
               <!-- Carátula eliminada para optimizar memoria -->
@@ -158,22 +158,19 @@ onMounted(() => {
 <style scoped>
 .playlist-table-container {
   width: 100%;
-  background: var(--color-vaporwave3);
-  border-radius: 8px;
-  box-shadow: var(--shadow-md);
-  padding: 0.5rem 0.5rem 1rem 0.5rem;
+  background: var(--color-bg-dark);
+  padding: 1rem;
   max-height: 70vh;
   overflow-y: auto;
 }
 .playlist-table-controls {
-  margin-bottom: 0.5rem;
+  margin-bottom: 1.5rem;
 }
 .playlist-filter-input {
   width: 100%;
-  padding: 0.5rem;
-  border-radius: 4px;
-  border: 1px solid var(--color-vaporwave4);
-  background: rgba(0,0,0,0.1);
+  padding: 0.8rem;
+  border-radius: 2px;
+  background: var(--color-bg-dark);
   color: var(--color-vaporwave4);
 }
 .playlist-table {
@@ -192,7 +189,6 @@ onMounted(() => {
 .playlist-table td {
   padding: 0.5rem;
   color: var(--color-vaporwave4);
-  background: rgba(0,0,0,0.1);
 }
 .playlist-table tr.active {
   background: var(--color-vaporwave2);
@@ -202,14 +198,6 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-}
-button {
-  background: none;
-  border: none;
-  color: inherit;
-  cursor: pointer;
-  font-size: 1.1em;
-  margin-right: 0.2em;
 }
 button.fav {
   color: var(--color-vaporwave2);

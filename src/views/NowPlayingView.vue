@@ -1,19 +1,19 @@
 <template>
-  <div class="now-playing">
+  <div class="now-playing sombra-alt">
     <div v-if="currentTrack" class="track-container">
       <div class="cover-container">
-        <img v-if="coverImageUrl" :src="coverImageUrl" alt="Cover Art" class="cover-art" @load="revokePreviousCover" />
-        <div v-else class="cover-placeholder">
+        <img v-if="coverImageUrl" :src="coverImageUrl" alt="Cover Art" class="cover-art sombra" @load="revokePreviousCover" />
+        <div v-else class="cover-placeholder sombra-alt">
           <span>🎵</span>
         </div>
       </div>
-      <div class="track-info">
+      <div class="track-info sombra-alt">
         <h2 class="track-title">{{ currentTrack.name || 'Nombre desconocido' }}</h2>
         <h3 class="artist-name">{{ currentTrack.artist || 'Artista desconocido' }}</h3>
         <p class="album-title">{{ currentTrack.album || 'Álbum desconocido' }}</p>
         
         <!-- Información adicional -->
-        <div class="track-metadata">
+        <div class="track-metadata sombra">
           <div class="metadata-item" v-if="duration">
             <span class="metadata-label">Duración:</span>
             <span class="metadata-value">{{ formatTime(duration) }}</span>
@@ -107,7 +107,6 @@ watchEffect(() => {
   justify-content: center;
   text-align: center;
   padding: var(--space-md);
-  height: calc(100vh - 120px); /* Considerando el footer con los controles principales */
   overflow-y: auto;
 }
 
@@ -115,12 +114,11 @@ watchEffect(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  max-width: 850px;
   width: 100%;
   background: rgba(0, 0, 0, 0.2);
-  border-radius: 12px;
+  border-radius: 2px;
   padding: var(--space-lg);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+  background-color: var(--color-bg-dark);
 }
 
 @media (min-width: 768px) {
@@ -144,11 +142,10 @@ watchEffect(() => {
 }
 
 .cover-art {
-  width: 300px;
-  height: 300px;
+  width: 75%;
+  height: 75%;
   object-fit: cover;
-  border-radius: 10px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+  border-radius: 4px;
 }
 
 .cover-placeholder {
@@ -161,13 +158,13 @@ watchEffect(() => {
   background-image: linear-gradient(45deg, var(--color-vaporwave5) 0%, var(--color-vaporwave4) 100%);
   border-radius: 10px;
   font-size: 100px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
 }
 
 .track-info {
   flex: 1;
   display: flex;
   flex-direction: column;
+  padding: 2rem;
 }
 
 .track-title {
@@ -192,8 +189,7 @@ watchEffect(() => {
 
 .track-metadata {
   margin-top: var(--space-lg);
-  background-color: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
+  border-radius: 2px;
   padding: var(--space-md);
 }
 

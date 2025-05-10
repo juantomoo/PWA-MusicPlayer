@@ -1,10 +1,10 @@
 <template>
-  <div class="playlists-view">
+  <div class="playlists-view sombra-alt">
     <h2>Mi Música</h2>
     <div class="playlists-controls">
-      <button @click="selectMusicDirectory" class="directory-button">Seleccionar Directorio</button>
-      <button @click="rescanDirectories" class="rescan-button">Reescanear Directorio</button>
-      <button @click="clearPlaylist" class="clear-button">Limpiar lista</button>
+      <button @click="selectMusicDirectory" class="sombra">Seleccionar Directorio</button>
+      <button @click="rescanDirectories" class="sombra">Reescanear Directorio</button>
+      <button @click="clearPlaylist" class="sombra">Limpiar lista</button>
     </div>
     <div v-if="!playlist || playlist.tracks.length === 0" class="empty-state">
       <p>No tienes canciones cargadas</p>
@@ -95,8 +95,8 @@ function onRemove(trackId) {
 <style scoped>
 .playlists-view {
   padding: var(--space-md);
-  max-width: 1200px;
   margin: 0 auto;
+  justify-items: center;
 }
 .playlists-controls {
   display: flex;
@@ -124,19 +124,5 @@ function onRemove(trackId) {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-.clear-button {
-  background: var(--color-vaporwave5);
-  color: var(--color-vaporwave1);
-  border: none;
-  border-radius: 4px;
-  padding: 0.5em 1em;
-  cursor: pointer;
-  font-weight: bold;
-  transition: background 0.2s;
-}
-.clear-button:hover {
-  background: var(--color-vaporwave2);
-  color: white;
 }
 </style>

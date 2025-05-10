@@ -15,8 +15,7 @@
         step="0.01" 
         :value="isMuted ? 0 : volume" 
         @input="handleVolumeChange" 
-        class="flex-grow h-2 volume-slider"
-        :style="`background: linear-gradient(to right, #FDC47F 0%, #FDC47F ${volumePercentage}%, #1A1225 ${volumePercentage}%, #1A1225 100%);`"
+        class="flex-grow h-2 volume-slider sombra-alt"
       />
     </div>
   </div>

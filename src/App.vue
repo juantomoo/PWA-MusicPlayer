@@ -7,11 +7,11 @@
       </div>
     </header>
 
-    <nav>
-      <router-link to="/">Reproduciendo</router-link>
-      <router-link to="/playlists">Playlists</router-link>
-      <router-link to="/equalizer">Ecualizador</router-link>
-      <router-link to="/lyrics">Letras</router-link>
+    <nav class="sombra-alt">
+      <router-link to="/" class="sombra">Reproduciendo</router-link>
+      <router-link to="/playlists" class="sombra">Playlists</router-link>
+      <router-link to="/equalizer" class="sombra">Ecualizador</router-link>
+      <router-link to="/lyrics" class="sombra">Letras</router-link>
     </nav>
 
     <main>
