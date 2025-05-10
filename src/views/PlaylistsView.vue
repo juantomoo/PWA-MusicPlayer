@@ -4,6 +4,7 @@
     <div class="playlists-controls">
       <button @click="selectMusicDirectory" class="directory-button">Seleccionar Directorio</button>
       <button @click="rescanDirectories" class="rescan-button">Reescanear Directorio</button>
+      <button @click="clearPlaylist" class="clear-button">Limpiar lista</button>
     </div>
     <div v-if="!playlist || playlist.tracks.length === 0" class="empty-state">
       <p>No tienes canciones cargadas</p>
@@ -21,7 +22,7 @@
       <LoadingProgress
         :processed="importProgress.processed"
         :total="importProgress.total"
-        :message="'Importando tu biblioteca de música...'"
+        :message="'Importando o reescaneando tu biblioteca de música...'"
         :showCounts="true"
       />
     </div>
@@ -64,7 +65,19 @@ async function selectMusicDirectory() {
 }
 
 async function rescanDirectories() {
-  await selectMusicDirectory();
+  isImporting.value = true;
+  importProgress.value = { processed: 0, total: 0 };
+  await playlistManager.selectAndScanMusicDirectory((progress) => {
+    importProgress.value = progress;
+  });
+  isImporting.value = false;
+  await loadGlobalPlaylist();
+}
+
+function clearPlaylist() {
+  playlist.value = { id: `playlist_${Date.now()}`, name: 'Mi música', tracks: [] };
+  playlistManager.savePlaylists([playlist.value]);
+  playerStore.setGlobalPlaylist([]);
 }
 
 function onFavorite(track) {
@@ -111,5 +124,19 @@ function onRemove(trackId) {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+.clear-button {
+  background: var(--color-vaporwave5);
+  color: var(--color-vaporwave1);
+  border: none;
+  border-radius: 4px;
+  padding: 0.5em 1em;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.2s;
+}
+.clear-button:hover {
+  background: var(--color-vaporwave2);
+  color: white;
 }
 </style>
