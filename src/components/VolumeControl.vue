@@ -2,10 +2,9 @@
   <div class="bg-vaporwave3 border border-vaporwave5 p-2 rounded-none">
     <div class="flex items-center gap-1">
       <!-- Ícono de volumen -->
-      <button @click="toggleMute" class="text-vaporwave4 hover:text-vaporwave1">
-        <span v-if="isMuted || volume === 0">🔇</span>
-        <span v-else-if="volume < 0.5">🔉</span>
-        <span v-else>🔊</span>
+      <button @click="toggleMute" class="text-vaporwave4 hover:text-vaporwave1 volume-btn">
+        <img v-if="isMuted || volume === 0" src="/src/assets/volume_off.svg" alt="Silenciado" class="icon-svg" />
+        <img v-else src="/src/assets/volume_up.svg" alt="Volumen" class="icon-svg" />
       </button>
       
       <!-- Slider de volumen (versión compacta para el footer) -->
@@ -82,5 +81,19 @@ function toggleMute() {
 </script>
 
 <style scoped>
-
+.icon-svg {
+  width: 22px;
+  height: 22px;
+  vertical-align: middle;
+  filter: drop-shadow(0 0 1px #552A93);
+}
+.volume-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-right: 0.2em;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
 </style>

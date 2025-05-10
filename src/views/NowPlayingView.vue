@@ -2,7 +2,7 @@
   <div class="now-playing">
     <div v-if="currentTrack" class="track-container">
       <div class="cover-container">
-        <img v-if="coverImageUrl" :src="coverImageUrl" alt="Cover Art" class="cover-art" />
+        <img v-if="coverImageUrl" :src="coverImageUrl" alt="Cover Art" class="cover-art" @load="revokePreviousCover" />
         <div v-else class="cover-placeholder">
           <span>🎵</span>
         </div>
@@ -44,7 +44,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watchEffect } from 'vue';
+import { computed, ref, watchEffect, onBeforeUnmount } from 'vue';
 import { usePlayerStore } from '../store/playerStore';
 import audioManager from '../utils/audioManager';
 
@@ -53,13 +53,27 @@ const currentTrack = computed(() => playerStore.currentTrack);
 const currentTime = ref(0);
 const duration = ref(0);
 
-// Robust cover art logic: prefer coverArt, fallback to coverUrl
+// Solo se mantiene la carátula de la pista actual
+let previousCoverUrl = null;
 const coverImageUrl = computed(() => {
   const track = currentTrack.value;
   if (!track) return null;
   if (track.coverArt) return track.coverArt;
   if (track.coverUrl) return track.coverUrl;
   return null;
+});
+
+function revokePreviousCover() {
+  if (previousCoverUrl && previousCoverUrl.startsWith('blob:')) {
+    URL.revokeObjectURL(previousCoverUrl);
+  }
+  previousCoverUrl = coverImageUrl.value;
+}
+
+onBeforeUnmount(() => {
+  if (previousCoverUrl && previousCoverUrl.startsWith('blob:')) {
+    URL.revokeObjectURL(previousCoverUrl);
+  }
 });
 
 // Formateador de tiempo (mm:ss)

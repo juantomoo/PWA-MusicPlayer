@@ -10,7 +10,7 @@
     <div v-else class="lyrics-container">
       <div class="track-info">
         <div class="cover-container">
-          <img v-if="currentTrack.coverUrl" :src="currentTrack.coverUrl" alt="Cover" class="track-cover" />
+          <img v-if="currentTrack && currentTrack.coverUrl" :src="currentTrack.coverUrl" alt="Cover" class="track-cover" />
           <div v-else class="cover-placeholder"></div>
         </div>
         

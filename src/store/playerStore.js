@@ -42,16 +42,23 @@ export const usePlayerStore = defineStore('player', {
         console.warn('No se proporcionó una playlist válida');
         return;
       }
-      
-      this.globalPlaylist = [...playlist];
-      
+      // Solo metadatos esenciales
+      this.globalPlaylist = playlist.map(track => ({
+        id: track.id,
+        name: track.name,
+        artist: track.artist,
+        album: track.album,
+        year: track.year,
+        genre: track.genre,
+        favorite: track.favorite || false,
+        fileHandle: track.fileHandle // No se serializa, solo en memoria
+      }));
       // Si hay lista pero no hay pista actual seleccionada,
       // seleccionamos la primera
       if (this.globalPlaylist.length > 0 && !this.currentTrack) {
         this.currentTrack = this.globalPlaylist[0];
         this.playbackIndex = 0;
       }
-      
       // Guardar estado
       this.saveState();
     },
@@ -205,16 +212,24 @@ export const usePlayerStore = defineStore('player', {
     // Guardar estado completo
     saveState() {
       try {
-        // Filtrar propiedades no serializables antes de guardar
+        // Solo metadatos esenciales, nunca blobs ni carátulas
         const serializableState = {
           lastUsedPlaylistId: this.lastUsedPlaylistId,
           volume: this.volume,
           isShuffle: this.isShuffle,
           isRepeat: this.isRepeat,
           equalizer: this.equalizer,
-          currentTrackId: this.currentTrack?.id
+          currentTrackId: this.currentTrack?.id,
+          globalPlaylist: this.globalPlaylist.map(track => ({
+            id: track.id,
+            name: track.name,
+            artist: track.artist,
+            album: track.album,
+            year: track.year,
+            genre: track.genre,
+            favorite: track.favorite || false
+          }))
         };
-        
         localforage.setItem('playerState', serializableState)
           .catch(error => console.error('Error al guardar estado:', error));
       } catch (error) {
@@ -234,6 +249,9 @@ export const usePlayerStore = defineStore('player', {
           if (savedState.isShuffle !== undefined) this.isShuffle = savedState.isShuffle;
           if (savedState.equalizer) this.equalizer = savedState.equalizer;
           if (savedState.lastUsedPlaylistId) this.lastUsedPlaylistId = savedState.lastUsedPlaylistId;
+          if (Array.isArray(savedState.globalPlaylist)) {
+            this.globalPlaylist = savedState.globalPlaylist;
+          }
           
           return savedState.currentTrackId;
         }

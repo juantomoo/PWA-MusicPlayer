@@ -31,21 +31,21 @@
     <div class="controls-row">
       <div class="main-controls">
         <button @click="handlePrev" class="player-btn">
-          <span>⏮</span>
+          <img :src="previousIcon" alt="Anterior" width="28" height="28" />
         </button>
         <button @click="togglePlay" class="player-btn-large">
-          <span>{{ isPlaying ? '⏸' : '▶️' }}</span>
+          <img :src="isPlaying ? pauseIcon : playIcon" :alt="isPlaying ? 'Pausa' : 'Reproducir'" width="36" height="36" />
         </button>
         <button @click="handleNext" class="player-btn">
-          <span>⏭</span>
+          <img :src="nextIcon" alt="Siguiente" width="28" height="28" />
         </button>
       </div>
       <div class="extra-controls">
         <button @click="toggleRepeat" class="player-btn-small" :class="{ 'active': isRepeat }">
-          <span>🔁</span>
+          <img :src="isRepeat ? repeatOnIcon : repeatIcon" alt="Repetir" width="22" height="22" />
         </button>
         <button @click="toggleShuffle" class="player-btn-small" :class="{ 'active': isShuffle }">
-          <span>🔀</span>
+          <img :src="isShuffle ? shuffleOnIcon : shuffleIcon" alt="Aleatorio" width="22" height="22" />
         </button>
         <VolumeControl :model-value="volume" @update:modelValue="onVolumeChange" />
       </div>
@@ -58,6 +58,14 @@ import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { usePlayerStore } from '../store/playerStore';
 import audioManager from '../utils/audioManager';
 import VolumeControl from './VolumeControl.vue';
+import playIcon from '../assets/play.svg';
+import pauseIcon from '../assets/pause.svg';
+import nextIcon from '../assets/next.svg';
+import previousIcon from '../assets/previous.svg';
+import shuffleIcon from '../assets/shuffle.svg';
+import shuffleOnIcon from '../assets/shuffle_on.svg';
+import repeatIcon from '../assets/repeat.svg';
+import repeatOnIcon from '../assets/repeat_on.svg';
 
 const playerStore = usePlayerStore();
 
