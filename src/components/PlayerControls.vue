@@ -30,21 +30,21 @@
 
     <div class="controls-row">
       <div class="main-controls">
-        <button @click="handlePrev" class="player-btn">
+        <button @click="handlePrev" class="player-btn sombra-alt">
           <img :src="previousIcon" alt="Anterior" width="28" height="28" />
         </button>
-        <button @click="togglePlay" class="player-btn-large">
+        <button @click="togglePlay" class="player-btn-large sombra-alt">
           <img :src="isPlaying ? pauseIcon : playIcon" :alt="isPlaying ? 'Pausa' : 'Reproducir'" width="36" height="36" />
         </button>
-        <button @click="handleNext" class="player-btn">
+        <button @click="handleNext" class="player-btn sombra-alt">
           <img :src="nextIcon" alt="Siguiente" width="28" height="28" />
         </button>
       </div>
       <div class="extra-controls">
-        <button @click="toggleRepeat" class="player-btn-small" :class="{ 'active': isRepeat }">
+        <button @click="toggleRepeat" class="player-btn-small sombra-alt" :class="{ 'active': isRepeat }">
           <img :src="isRepeat ? repeatOnIcon : repeatIcon" alt="Repetir" width="22" height="22" />
         </button>
-        <button @click="toggleShuffle" class="player-btn-small" :class="{ 'active': isShuffle }">
+        <button @click="toggleShuffle" class="player-btn-small sombra-alt" :class="{ 'active': isShuffle }">
           <img :src="isShuffle ? shuffleOnIcon : shuffleIcon" alt="Aleatorio" width="22" height="22" />
         </button>
         <VolumeControl :model-value="volume" @update:modelValue="onVolumeChange" />

@@ -92,12 +92,7 @@ function onRemove(trackId) {
 }
 </script>
 
-<style scoped>
-.playlists-view {
-  padding: var(--space-md);
-  margin: 0 auto;
-  justify-items: center;
-}
+<!-- <style scoped>
 .playlists-controls {
   display: flex;
   gap: var(--space-md);
@@ -125,4 +120,4 @@ function onRemove(trackId) {
   align-items: center;
   justify-content: center;
 }
-</style>
+</style> -->

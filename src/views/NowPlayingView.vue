@@ -119,6 +119,7 @@ watchEffect(() => {
   border-radius: 2px;
   padding: var(--space-lg);
   background-color: var(--color-bg-dark);
+  height: inherit;
 }
 
 @media (min-width: 768px) {
