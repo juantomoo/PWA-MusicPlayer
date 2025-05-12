@@ -472,12 +472,16 @@ class PlaylistManager {
   }
 
   /**
-   * Fetches playlists from a directory
+   * Fetches playlists from a directory (recursively, para mp3, flac, wav)
    */
-  async fetchPlaylistsFromDirectory(directoryHandle) {
+  async fetchPlaylistsFromDirectory(directoryHandle, parentPath = '') {
     const playlists = [];
     for await (const entry of directoryHandle.values()) {
-      if (entry.kind === 'file' && entry.name.endsWith('.mp3')) {
+      if (entry.kind === 'file' && (
+        entry.name.toLowerCase().endsWith('.flac') ||
+        entry.name.toLowerCase().endsWith('.wav') ||
+        entry.name.toLowerCase().endsWith('.mp3')
+      )) {
         const file = await entry.getFile();
         const metadata = await this.extractMetadata(file);
         playlists.push({
@@ -489,8 +493,13 @@ class PlaylistManager {
             artist: metadata.artist,
             album: metadata.album,
             fileHandle: entry,
+            relativePath: parentPath ? parentPath + '/' + entry.name : entry.name
           }],
         });
+      } else if (entry.kind === 'directory') {
+        // Recursividad para subdirectorios
+        const subPlaylists = await this.fetchPlaylistsFromDirectory(entry, parentPath ? parentPath + '/' + entry.name : entry.name);
+        playlists.push(...subPlaylists);
       }
     }
     return playlists;
@@ -501,21 +510,17 @@ class PlaylistManager {
    */
   async extractMetadata(fileOrHandle) {
     try {
-      // Si es un FileSystemFileHandle, obtenemos el archivo
       const file = fileOrHandle.getFile ? await fileOrHandle.getFile() : fileOrHandle;
-      
-      // ID único para la pista
+      console.log(`[DEBUG extractMetadata] Inicio para: ${file.name}, Tamaño: ${file.size}`);
       const id = `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
-      // Si window.jsmediatags está disponible (importado desde public/jsmediatags.min.js)
       if (window.jsmediatags) {
+        console.log(`[DEBUG extractMetadata] Usando jsmediatags para: ${file.name}`);
         return new Promise((resolve) => {
           window.jsmediatags.read(file, {
             onSuccess: (tag) => {
+              console.log(`[DEBUG extractMetadata] jsmediatags onSuccess para: ${file.name}`, tag.tags);
               const tags = tag.tags;
               let picture = '';
-              
-              // Extraer imagen de portada si existe
               if (tags.picture) {
                 const { data, format } = tags.picture;
                 let base64String = "";
@@ -524,7 +529,6 @@ class PlaylistManager {
                 }
                 picture = `data:${format};base64,${window.btoa(base64String)}`;
               }
-              
               resolve({
                 id,
                 title: tags.title || file.name,
@@ -535,8 +539,8 @@ class PlaylistManager {
                 fileHandle: fileOrHandle
               });
             },
-            onError: () => {
-              // En caso de error, devolvemos metadatos básicos
+            onError: (error) => {
+              console.error(`[DEBUG extractMetadata] jsmediatags onError para: ${file.name}`, error);
               resolve({
                 id,
                 title: file.name,
@@ -549,7 +553,7 @@ class PlaylistManager {
           });
         });
       } else {
-        // Si jsmediatags no está disponible, devolvemos metadatos básicos
+        console.warn(`[DEBUG extractMetadata] jsmediatags no disponible para: ${file.name}`);
         return {
           id,
           title: file.name,
@@ -560,7 +564,7 @@ class PlaylistManager {
         };
       }
     } catch (error) {
-      console.error('Error al extraer metadatos:', error);
+      console.error(`[DEBUG extractMetadata] Error mayor en extractMetadata para: ${fileOrHandle.name}`, error, error.stack);
       const id = `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       return {
         id,
@@ -585,12 +589,13 @@ class PlaylistManager {
 
       // Verificar y solicitar permisos persistentes
       console.log('Verificando permisos...');
-      const permission = await directoryHandle.queryPermission({ mode: 'read' });
+      // Usar recursive: true para asegurar acceso a subdirectorios
+      const permission = await directoryHandle.queryPermission({ mode: 'read', recursive: true });
       if (permission !== 'granted') {
         console.log('Solicitando permisos...');
-        const requestPermission = await directoryHandle.requestPermission({ mode: 'read' });
+        const requestPermission = await directoryHandle.requestPermission({ mode: 'read', recursive: true });
         if (requestPermission !== 'granted') {
-          throw new Error('Permiso denegado para acceder al directorio.');
+          throw new Error('Permiso denegado para acceder al directorio y subdirectorios.');
         }
       }
       console.log('Permisos concedidos');
@@ -603,10 +608,10 @@ class PlaylistManager {
       let totalFiles = 0;
       async function countFiles(dirHandle) {
         for await (const entry of dirHandle.values()) {
-          if (entry.kind === 'file' && entry.name.toLowerCase().endsWith('.mp3')) {
+          if (entry.kind === 'file' && (entry.name.toLowerCase().endsWith('.flac') || entry.name.toLowerCase().endsWith('.wav') || entry.name.toLowerCase().endsWith('.mp3'))) {
             totalFiles++;
           } else if (entry.kind === 'directory') {
-            await countFiles(entry);
+            await countFiles(entry); // Recursivo para subdirectorios
           }
         }
       }
@@ -615,30 +620,64 @@ class PlaylistManager {
       // 2. Recorrer y procesar archivos, reportando progreso
       const allTracks = [];
       let processed = 0;
-      async function scanDir(dirHandle) {
+      async function scanDir(dirHandle, parentPath = '') {
+        console.log(`[DEBUG scanDir] Entrando en directorio: ${dirHandle.name}, Path: '${parentPath}'`);
+        let entryCount = 0;
         for await (const entry of dirHandle.values()) {
-          if (entry.kind === 'file' && entry.name.toLowerCase().endsWith('.mp3')) {
-            try {
-              const metadata = await playlistManager.extractMetadata(entry);
-              allTracks.push({
-                id: `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                name: metadata.title || entry.name.replace('.mp3', ''),
-                artist: metadata.artist || 'Desconocido',
-                album: metadata.album || 'Desconocido',
-                coverArt: metadata.coverArt || '',
-                fileHandle: entry
-              });
-            } catch (fileError) {
-              console.error(`Error procesando archivo ${entry.name}:`, fileError);
-            }
-            processed++;
-            if (typeof onProgress === 'function') {
-              onProgress({ processed, total: totalFiles });
+          entryCount++;
+          // Log absolutamente todo lo que devuelve el iterador
+          console.log(`[DEBUG scanDir Raw Entry] Nombre: '${entry.name}', Kind: '${entry.kind}', Path: '${parentPath}'`);
+          // Construcción de ruta relativa usando solo los nombres originales
+          const safeRelativePath = parentPath
+            ? `${parentPath}/${entry.name}`
+            : entry.name;
+          if (entry.kind === 'file') {
+            console.log(`[DEBUG scanDir File Item] Archivo encontrado: '${safeRelativePath}'`);
+            if (
+              entry.name.toLowerCase().endsWith('.flac') ||
+              entry.name.toLowerCase().endsWith('.wav') ||
+              entry.name.toLowerCase().endsWith('.mp3')
+            ) {
+              console.log(`[DEBUG scanDir Procesando Archivo Valido]: '${safeRelativePath}'`);
+              if (entry.name.toLowerCase().endsWith('.flac')) {
+                console.log(`[DEBUG scanDir FLAC Detectado]: '${safeRelativePath}'`);
+              }
+              try {
+                console.log(`[DEBUG scanDir] Intentando obtener FileHandle para: '${entry.name}'`);
+                const file = await entry.getFile();
+                console.log(`[DEBUG scanDir] FileHandle obtenido: '${file.name}', Tamaño: ${file.size}, Tipo: '${file.type}'`);
+                const metadata = await playlistManager.extractMetadata(file);
+                allTracks.push({
+                  id: `track_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                  name: metadata.title || entry.name.replace(/\.(flac|wav|mp3)$/i, ''),
+                  artist: metadata.artist || 'Desconocido',
+                  album: metadata.album || 'Desconocido',
+                  coverArt: metadata.coverArt || '',
+                  fileHandle: entry,
+                  // Guardar la ruta original, sin codificar
+                  relativePath: safeRelativePath
+                });
+              } catch (fileError) {
+                console.error(`[DEBUG scanDir] Error procesando archivo '${safeRelativePath}':`, fileError, fileError.stack);
+              }
+              processed++;
+              if (typeof onProgress === 'function') {
+                onProgress({ processed, total: totalFiles });
+              }
+            } else {
+              console.log(`[DEBUG scanDir Archivo Descartado (extensión)] Nombre: '${entry.name}', Path: '${parentPath}'`);
             }
           } else if (entry.kind === 'directory') {
-            await scanDir(entry);
+            console.log(`[DEBUG scanDir Subdirectorio Encontrado]: '${entry.name}', Path: '${parentPath}'`);
+            await scanDir(entry, safeRelativePath);
+          } else {
+            console.log(`[DEBUG scanDir Otro Tipo de Entrada]: Nombre: '${entry.name}', Kind: '${entry.kind}', Path: '${parentPath}'`);
           }
         }
+        if (entryCount === 0) {
+          console.warn(`[DEBUG scanDir] Directorio vacío: ${dirHandle.name}, Path: '${parentPath}'`);
+        }
+        console.log(`[DEBUG scanDir] Saliendo de directorio: ${dirHandle.name}, Path: '${parentPath}'`);
       }
       await scanDir(directoryHandle);
 

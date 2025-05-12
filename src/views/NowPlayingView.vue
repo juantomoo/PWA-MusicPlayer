@@ -30,6 +30,14 @@
             <span class="metadata-label">Año:</span>
             <span class="metadata-value">{{ currentTrack.year }}</span>
           </div>
+          <div class="metadata-item" v-if="currentTrack.fileHandle && currentTrack.fileHandle.name">
+            <span class="metadata-label">Archivo:</span>
+            <span class="metadata-value" style="word-break: break-all;">{{ currentTrack.fileHandle.name }}</span>
+          </div>
+          <div class="metadata-item" v-if="currentTrack.fileHandle && currentTrack.fileHandle.relativePath">
+            <span class="metadata-label">Ruta:</span>
+            <span class="metadata-value" style="word-break: break-all;">{{ currentTrack.fileHandle.relativePath }}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -97,6 +105,9 @@ watchEffect(() => {
     duration.value = playerStore.duration;
   }
 });
+
+// En la lógica de coverImageUrl y metadatos, no se filtra por extensión, así que ya es agnóstico a mp3, flac, wav.
+// No se requiere cambio aquí, pero asegúrate de que la lógica de playlistManager y audioManager acepte flac y wav.
 </script>
 
 <style scoped>

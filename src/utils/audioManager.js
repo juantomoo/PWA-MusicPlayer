@@ -556,6 +556,9 @@ class AudioManager {
   }
 }
 
+// El método playFile y la lógica de reproducción ya funcionan para cualquier File, incluyendo .flac y .wav si el navegador lo soporta.
+// No se requiere cambio de código, pero se documenta el soporte.
+
 // Exportamos una sola instancia
 const audioManager = new AudioManager();
 export default audioManager;
